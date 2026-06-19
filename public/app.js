@@ -20,7 +20,6 @@ const VIEWS = {
       { name: 'Awaiting 50% Deposit', wip: null },
       { name: 'Send Order Form', wip: null },
       { name: 'Order Parts', wip: null },
-      { name: 'Ready for Manufacture', wip: null },
       { name: 'Schedule Works', wip: 15 },
       { name: 'Ready for Installation', wip: null },
       { name: 'Unqueued', wip: null },
