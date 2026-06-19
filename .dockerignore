@@ -1,0 +1,4 @@
+node_modules
+.env
+kanban-cache.json
+.git

@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+:root {
+  --board-bg: #0f172a;
+  --column-bg: #1e293b;
+  --card-bg: #334155;
+  --card-hover: #3e4f6a;
+  --accent: #38bdf8;
+  --accent-dim: #0ea5e9;
+}
+
+body {
+  margin: 0;
+  background: var(--board-bg);
+  color: #e2e8f0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.kanban-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+.kanban-scroll::-webkit-scrollbar-track {
+  background: var(--board-bg);
+}
+.kanban-scroll::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+}
+
+.column-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.column-scroll::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+}
+
+.drag-over {
+  background: #1e3a5f !important;
+}
+
+.dragging {
+  opacity: 0.5;
+}
