@@ -20,6 +20,8 @@ import { createSyncManager } from './sync.js';
 import { createCache } from './cache.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+console.log('__dirname:', __dirname);
+console.log('cwd:', process.cwd());
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -123,6 +125,10 @@ app.post('/api/webhook', async (req, res) => {
 
 // --- Static serving ---
 const publicPath = join(__dirname, '..', 'public');
+import { readdirSync, existsSync } from 'fs';
+console.log('publicPath:', publicPath, 'exists:', existsSync(publicPath));
+try { console.log('public contents:', readdirSync(publicPath)); } catch (e) { console.log('cannot read public:', e.message); }
+try { console.log('app root contents:', readdirSync(join(__dirname, '..'))); } catch (e) { console.log('cannot read root:', e.message); }
 app.use(express.static(publicPath));
 app.get('*', (_req, res) => {
   res.sendFile(join(publicPath, 'index.html'));
