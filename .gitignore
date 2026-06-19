@@ -1,4 +1,4 @@
 node_modules/
 kanban-cache.json
 .env
-index.html
+/index.html
