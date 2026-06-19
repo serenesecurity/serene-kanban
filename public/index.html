@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Serene Security — Kanban</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header id="header">
+    <div class="header-brand">
+      <img src="logo.png" alt="Serene Security" class="header-logo">
+    </div>
+    <div class="header-controls">
+      <div class="view-group">
+        <button class="view-btn" data-view="sales" onclick="setView('sales')">Sales</button>
+        <button class="view-btn active" data-view="production" onclick="setView('production')">Production</button>
+        <button class="view-btn" data-view="installation" onclick="setView('installation')">Installation</button>
+      </div>
+      <div class="filter-group">
+        <button class="filter-btn" data-filter="all" onclick="setFilter('all')">All</button>
+        <button class="filter-btn" data-filter="Quote" onclick="setFilter('Quote')">Quotes</button>
+        <button class="filter-btn active" data-filter="Work Order" onclick="setFilter('Work Order')">Work Orders</button>
+      </div>
+      <input type="text" id="search" placeholder="Search jobs…" autocomplete="off">
+      <span id="view-count" class="job-count"></span>
+      <span id="job-count" class="job-count"></span>
+      <button id="sync-btn" onclick="handleSync()">Sync</button>
+    </div>
+  </header>
+
+  <!-- Loading -->
+  <div id="loading" class="loading">Loading board…</div>
+
+
+  <!-- Board -->
+  <div id="board" class="board kanban-scroll hidden"></div>
+
+  <!-- Modal backdrop -->
+  <div id="modal-backdrop" class="modal-backdrop" style="display:none" onclick="closeModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <span id="modal-job-id" class="modal-job-id"></span>
+          <h2 id="modal-client"></h2>
+        </div>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div id="modal-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" style="display:none"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
