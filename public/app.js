@@ -443,5 +443,11 @@ function showToast(message, type = 'info') {
   toastTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
 }
 
+// --- Close app switcher on outside click ---
+document.addEventListener('click', e => {
+  const menu = document.querySelector('.app-switcher-menu');
+  if (menu && !e.target.closest('.app-switcher')) menu.classList.remove('open');
+});
+
 // --- Start ---
 init();
