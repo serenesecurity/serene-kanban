@@ -47,46 +47,16 @@ body {
   width: auto;
   object-fit: contain;
 }
-.app-switcher {
-  position: relative;
-}
-.app-switcher-btn {
+.nav-link {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-decoration: none;
   padding: 5px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--column-bg);
-  color: var(--text-dim);
-  font-size: 12px;
-  cursor: pointer;
   transition: all 0.15s;
 }
-.app-switcher-btn:hover { color: var(--text); }
-.app-switcher-menu {
-  display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: 4px;
-  background: var(--column-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 4px;
-  min-width: 160px;
-  z-index: 40;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-}
-.app-switcher-menu.open { display: block; }
-.app-link {
-  display: block;
-  padding: 8px 12px;
-  border-radius: 6px;
-  color: var(--text-dim);
-  text-decoration: none;
-  font-size: 13px;
-  transition: all 0.12s;
-}
-.app-link:hover { background: var(--card-bg); color: var(--text); }
-.app-link.active { color: var(--accent); font-weight: 500; }
+.nav-link:hover { color: var(--text); border-color: var(--text-dim); }
 #header h1 {
   font-size: 17px;
   font-weight: 600;
