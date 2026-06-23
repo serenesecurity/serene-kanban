@@ -11,7 +11,8 @@ export function createServiceM8Client(apiKey) {
       },
     });
     if (!res.ok) {
-      throw new Error(`SM8 ${res.status}: ${path}`);
+      const body = await res.text().catch(() => '');
+      throw new Error(`SM8 ${res.status}: ${path} — ${body}`);
     }
     return res.json();
   }
