@@ -388,6 +388,80 @@ body {
 .toast-info { background: #0ea5e9; }
 .toast-error { background: #dc2626; }
 
+/* Schedule panel */
+#schedule-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid #7c3aed;
+  background: transparent;
+  color: #a78bfa;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+#schedule-btn:hover { background: #7c3aed; color: #fff; }
+.schedule-panel {
+  background: #1e293b;
+  border-radius: 14px;
+  max-width: 700px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+}
+.schedule-day {
+  margin-bottom: 16px;
+}
+.schedule-day-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: #a78bfa;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.schedule-job {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--card-bg);
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+.schedule-seq {
+  font-size: 18px;
+  font-weight: 700;
+  color: #a78bfa;
+  min-width: 24px;
+  text-align: center;
+  line-height: 1.2;
+}
+.schedule-detail {
+  flex: 1;
+  font-size: 13px;
+}
+.schedule-detail .sj-client { font-weight: 600; color: var(--text); }
+.schedule-detail .sj-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.schedule-detail .sj-nearby { font-size: 10px; color: #a78bfa; margin-top: 3px; }
+.schedule-detail .sj-job-id { font-family: monospace; font-size: 11px; color: var(--text-muted); }
+.schedule-detail .sj-amount { color: #34d399; font-size: 11px; font-weight: 500; }
+.schedule-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 32px 0;
+  font-size: 14px;
+}
+.schedule-warn {
+  background: rgba(245,158,11,0.1);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: #fbbf24;
+}
+
 .hidden { display: none !important; }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }

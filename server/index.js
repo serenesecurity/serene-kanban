@@ -18,6 +18,7 @@ import { createSSEManager } from './sse.js';
 import { createServiceM8Client } from './servicem8.js';
 import { createSyncManager } from './sync.js';
 import { createCache } from './cache.js';
+import { buildSchedule } from './scheduler.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -90,6 +91,11 @@ app.post('/api/sync', async (_req, res) => {
     console.error('Sync failed:', err.message);
     res.status(502).json({ error: 'Sync failed' });
   }
+});
+
+app.get('/api/schedule', (_req, res) => {
+  const jobs = cache.getJobs();
+  res.json(buildSchedule(jobs));
 });
 
 app.post('/api/webhook', async (req, res) => {

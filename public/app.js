@@ -451,6 +451,83 @@ function showToast(message, type = 'info') {
   toastTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
 }
 
+// --- Schedule panel ---
+async function openSchedule() {
+  document.getElementById('schedule-backdrop').style.display = 'flex';
+  document.getElementById('schedule-body').innerHTML = '<p style="color:#64748b;">Loading...</p>';
+
+  try {
+    const res = await fetch('/api/schedule');
+    const data = await res.json();
+    renderSchedule(data);
+  } catch {
+    document.getElementById('schedule-body').innerHTML = '<p style="color:#ef4444;">Failed to load schedule</p>';
+  }
+}
+
+function closeSchedule(e) {
+  if (e && e.target && e.target !== document.getElementById('schedule-backdrop')) return;
+  document.getElementById('schedule-backdrop').style.display = 'none';
+}
+
+function renderSchedule(data) {
+  const body = document.getElementById('schedule-body');
+
+  if (!data.scheduled.length && !data.unschedulable.length) {
+    body.innerHTML = '<div class="schedule-empty">No jobs with confirmed deposits (job number ending in a letter) found.<br><br><span style="font-size:12px;color:#64748b;">A deposit is confirmed when the Job Number includes a letter suffix (e.g. Job 1234A).</span></div>';
+    return;
+  }
+
+  // Group by install date
+  const byDay = new Map();
+  for (const s of data.scheduled) {
+    if (!byDay.has(s.installDate)) byDay.set(s.installDate, []);
+    byDay.get(s.installDate).push(s);
+  }
+
+  let html = '';
+
+  for (const [dateStr, jobs] of byDay) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const dayName = d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    html += `<div class="schedule-day">`;
+    html += `<div class="schedule-day-header">${esc(dayName)} (${jobs.length} job${jobs.length > 1 ? 's' : ''})</div>`;
+
+    for (const job of jobs) {
+      const nearbyText = job.nearby.length
+        ? job.nearby.map(n => `${n.dist}km from ${n.jobId}`).join(', ')
+        : '';
+
+      html += `<div class="schedule-job">
+        <div class="schedule-seq">${job.sequence}</div>
+        <div class="schedule-detail">
+          <div><span class="sj-client">${esc(job.client)}</span> <span class="sj-job-id">${esc(job.jobId)}</span></div>
+          <div class="sj-meta">${esc(job.address)}</div>
+          <div class="sj-meta">Deposit: ${formatSchedDate(job.depositDate)}${job.amount > 0 ? ` <span class="sj-amount">$${job.amount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>` : ''}</div>
+          ${nearbyText ? `<div class="sj-nearby">Clustered: ${esc(nearbyText)}</div>` : ''}
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  if (data.unschedulable.length) {
+    html += '<div class="schedule-warn"><strong>Could not schedule:</strong><br>';
+    for (const u of data.unschedulable) {
+      html += `${esc(u.jobId)} (${esc(u.client)}) - ${esc(u.reason)}<br>`;
+    }
+    html += '</div>';
+  }
+
+  body.innerHTML = html;
+}
+
+function formatSchedDate(str) {
+  if (!str) return '';
+  const d = new Date(str + 'T00:00:00');
+  return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 // --- Close app switcher on outside click ---
 document.addEventListener('click', e => {
   const menu = document.querySelector('.app-switcher-menu');
