@@ -33,8 +33,6 @@ export function buildSchedule(jobs) {
   const eligible = jobs.filter((j) => {
     if (j.status !== 'Work Order') return false;
     if (!j.generated_job_id || !/[A-Za-z]$/.test(j.generated_job_id)) return false;
-    if (!j.payment_date || j.payment_date.startsWith('0000')) return false;
-    if (!j.lat || !j.lng) return false;
     if (j.generated_job_id === 'SAMPLE') return false;
     return true;
   });
@@ -43,7 +41,9 @@ export function buildSchedule(jobs) {
 
   // Step 2: Calculate target windows (20-25 days after deposit)
   const candidates = eligible.map((j) => {
-    const depositDate = new Date(j.payment_date);
+    const payDate = j.payment_date && !j.payment_date.startsWith('0000') ? j.payment_date : null;
+    const woDate = j.work_order_date && !j.work_order_date.startsWith('0000') ? j.work_order_date : null;
+    const depositDate = new Date(payDate || woDate || j.edit_date);
     const windowStart = new Date(depositDate);
     windowStart.setDate(windowStart.getDate() + 20);
     const windowEnd = new Date(depositDate);
