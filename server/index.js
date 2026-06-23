@@ -140,4 +140,14 @@ app.listen(PORT, async () => {
   } catch (err) {
     console.error('Initial sync failed:', err.message);
   }
+
+  // Auto-sync every 5 minutes
+  setInterval(async () => {
+    try {
+      await sync.fullSync();
+      console.log('Auto-sync complete');
+    } catch (err) {
+      console.error('Auto-sync failed:', err.message);
+    }
+  }, 5 * 60 * 1000);
 });
