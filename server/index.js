@@ -69,7 +69,10 @@ app.patch('/api/jobs/:uuid/queue', async (req, res) => {
   if (!queue) return res.status(400).json({ error: 'Unknown queue' });
 
   try {
-    await sm8.updateJob(req.params.uuid, { queue_uuid: queue.uuid });
+    await sm8.updateJob(req.params.uuid, {
+      queue_uuid: queue.uuid,
+      queue_expiry_date: '0000-00-00 00:00:00',
+    });
     const updated = cache.moveJob(req.params.uuid, queue_name, queue.uuid);
     sse.broadcast('job_updated', updated);
     res.json(updated);
