@@ -473,51 +473,62 @@ function closeSchedule(e) {
 function renderSchedule(data) {
   const body = document.getElementById('schedule-body');
 
-  if (!data.scheduled.length && !data.unschedulable.length) {
-    body.innerHTML = '<div class="schedule-empty">No jobs with confirmed deposits (job number ending in a letter) found.<br><br><span style="font-size:12px;color:#64748b;">A deposit is confirmed when the Job Number includes a letter suffix (e.g. Job 1234A).</span></div>';
+  if (!data.weeks || !data.weeks.length) {
+    body.innerHTML = '<div class="schedule-empty">No Work Orders to schedule.<br><br><span style="font-size:12px;color:#64748b;">Work Orders with location data will appear here with recommended install dates.</span></div>';
     return;
-  }
-
-  // Group by install date
-  const byDay = new Map();
-  for (const s of data.scheduled) {
-    if (!byDay.has(s.installDate)) byDay.set(s.installDate, []);
-    byDay.get(s.installDate).push(s);
   }
 
   let html = '';
 
-  for (const [dateStr, jobs] of byDay) {
-    const d = new Date(dateStr + 'T00:00:00');
-    const dayName = d.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    html += `<div class="schedule-day">`;
-    html += `<div class="schedule-day-header">${esc(dayName)} (${jobs.length} job${jobs.length > 1 ? 's' : ''})</div>`;
+  for (const week of data.weeks) {
+    const weekStart = new Date(week.days[0].date + 'T00:00:00');
+    const weekLabel = weekStart.toLocaleDateString('en-AU', { day: 'numeric', month: 'long' });
+    html += `<div class="cal-week">`;
+    html += `<div class="cal-week-label">Week of ${esc(weekLabel)}</div>`;
+    html += `<div class="cal-row">`;
 
-    for (const job of jobs) {
-      const nearbyText = job.nearby.length
-        ? job.nearby.map(n => `${n.dist}km from ${n.jobId}`).join(', ')
-        : '';
+    for (const day of week.days) {
+      const isMonday = day.dayName === 'Mon';
+      const hasJobs = day.jobs.length > 0;
+      const dayDate = new Date(day.date + 'T00:00:00');
+      const isToday = new Date().toISOString().slice(0, 10) === day.date;
+      const isPast = dayDate < new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00');
 
-      html += `<div class="schedule-job">
-        <div class="schedule-seq">${job.sequence}</div>
-        <div class="schedule-detail">
-          <div><span class="sj-client">${esc(job.client)}</span> <span class="sj-job-id">${esc(job.jobId)}</span></div>
-          <div class="sj-meta">${esc(job.address)}</div>
-          <div class="sj-meta">Deposit: ${formatSchedDate(job.depositDate)}${job.amount > 0 ? ` <span class="sj-amount">$${job.amount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</span>` : ''}</div>
-          ${nearbyText ? `<div class="sj-nearby">Clustered: ${esc(nearbyText)}</div>` : ''}
-        </div>
-      </div>`;
+      html += `<div class="cal-day ${isMonday ? 'cal-day-off' : ''} ${isToday ? 'cal-day-today' : ''} ${isPast ? 'cal-day-past' : ''}">`;
+      html += `<div class="cal-day-head"><span class="cal-day-name">${day.dayName}</span><span class="cal-day-num">${day.dayNum} ${day.month}</span></div>`;
+
+      if (isMonday) {
+        html += `<div class="cal-day-off-label">No installs</div>`;
+      } else if (!hasJobs) {
+        html += `<div class="cal-day-empty">Available</div>`;
+      } else {
+        for (const job of day.jobs) {
+          const depositTag = job.hasDeposit ? '<span class="cal-tag cal-tag-paid">Deposit paid</span>' : '<span class="cal-tag cal-tag-pending">No deposit</span>';
+          const nearbyText = job.nearby.length
+            ? job.nearby.map(n => `${n.dist}km from ${esc(n.client)}`).join(', ')
+            : '';
+
+          html += `<div class="cal-job" onclick='openModal("${job.uuid}")'>`;
+          html += `<div class="cal-job-head"><span class="cal-job-seq">#${job.sequence}</span><span class="cal-job-id">${esc(job.jobId)}</span></div>`;
+          html += `<div class="cal-job-client">${esc(job.client)}</div>`;
+          html += `<div class="cal-job-addr">${esc(job.address)}</div>`;
+          if (job.amount > 0) html += `<div class="cal-job-amount">$${job.amount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>`;
+          html += depositTag;
+          if (nearbyText) html += `<div class="cal-job-nearby">${nearbyText}</div>`;
+          html += `</div>`;
+        }
+      }
+
+      html += `</div>`;
     }
-    html += '</div>';
+
+    html += `</div></div>`;
   }
 
-  if (data.unschedulable.length) {
-    html += '<div class="schedule-warn"><strong>Could not schedule:</strong><br>';
-    for (const u of data.unschedulable) {
-      html += `${esc(u.jobId)} (${esc(u.client)}) - ${esc(u.reason)}<br>`;
-    }
-    html += '</div>';
-  }
+  // Summary
+  const totalJobs = data.scheduled.length;
+  const withDeposit = data.scheduled.filter(s => s.hasDeposit).length;
+  html += `<div class="cal-summary">${totalJobs} installations recommended across ${data.weeks.length} week${data.weeks.length > 1 ? 's' : ''} | ${withDeposit} with deposit confirmed</div>`;
 
   body.innerHTML = html;
 }

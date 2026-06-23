@@ -1,4 +1,3 @@
-// Haversine distance in km between two lat/lng points
 function distanceKm(lat1, lng1, lat2, lng2) {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -11,13 +10,11 @@ function distanceKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Check if date is Tue-Fri (2=Tue, 5=Fri)
 function isWorkday(date) {
   const day = date.getDay();
   return day >= 2 && day <= 5;
 }
 
-// Get all valid workdays in a range
 function getWorkdays(start, end) {
   const days = [];
   const d = new Date(start);
@@ -29,26 +26,31 @@ function getWorkdays(start, end) {
 }
 
 export function buildSchedule(jobs) {
-  // Step 1: Find eligible jobs (letter suffix in job number = deposit confirmed)
   const eligible = jobs.filter((j) => {
     if (j.status !== 'Work Order') return false;
-    if (!j.generated_job_id || !/[A-Za-z]$/.test(j.generated_job_id)) return false;
-    if (j.generated_job_id === 'SAMPLE') return false;
+    if (!j.generated_job_id || j.generated_job_id === 'SAMPLE') return false;
+    if (!j.lat || !j.lng) return false;
     return true;
   });
 
-  if (!eligible.length) return { scheduled: [], unschedulable: [] };
+  if (!eligible.length) return { scheduled: [], weeks: [] };
 
-  // Step 2: Calculate target windows (20-25 days after deposit)
   const candidates = eligible.map((j) => {
-    const payDate = j.payment_date && !j.payment_date.startsWith('0000') ? j.payment_date : null;
-    const woDate = j.work_order_date && !j.work_order_date.startsWith('0000') ? j.work_order_date : null;
-    const depositDate = new Date(payDate || woDate || j.edit_date);
-    const windowStart = new Date(depositDate);
+    const payDate =
+      j.payment_date && !j.payment_date.startsWith('0000')
+        ? j.payment_date
+        : null;
+    const woDate =
+      j.work_order_date && !j.work_order_date.startsWith('0000')
+        ? j.work_order_date
+        : null;
+    const baseDate = new Date(payDate || woDate || j.edit_date);
+
+    const windowStart = new Date(baseDate);
     windowStart.setDate(windowStart.getDate() + 20);
-    const windowEnd = new Date(depositDate);
+    const windowEnd = new Date(baseDate);
     windowEnd.setDate(windowEnd.getDate() + 25);
-    const workdays = getWorkdays(windowStart, windowEnd);
+
     return {
       uuid: j.uuid,
       jobId: j.generated_job_id,
@@ -56,55 +58,55 @@ export function buildSchedule(jobs) {
       address: j.job_address || '',
       lat: parseFloat(j.lat),
       lng: parseFloat(j.lng),
-      depositDate,
+      amount: parseFloat(j.total_invoice_amount || 0),
+      queue: j.queue_name || '',
+      baseDate,
       windowStart,
       windowEnd,
-      workdays,
-      amount: parseFloat(j.total_invoice_amount || 0),
+      hasDeposit: !!payDate,
+      hasSuffix: /[A-Za-z]$/.test(j.generated_job_id),
     };
   });
 
-  const unschedulable = candidates.filter((c) => c.workdays.length === 0);
-  const schedulable = candidates.filter((c) => c.workdays.length > 0);
+  // Sort by base date (earliest first)
+  candidates.sort((a, b) => a.baseDate - b.baseDate);
 
-  // Step 3: Group into days using geographic clustering
-  const daySlots = new Map(); // dateStr -> [{candidate, sequence}]
+  // Schedule into days using geographic clustering
+  const daySlots = new Map();
 
-  // Sort by deposit date so earlier deposits get scheduled first
-  schedulable.sort((a, b) => a.depositDate - b.depositDate);
+  for (const cand of candidates) {
+    const workdays = getWorkdays(cand.windowStart, cand.windowEnd);
+    if (!workdays.length) {
+      // Expand to nearest workday
+      const d = new Date(cand.windowStart);
+      for (let i = 0; i < 10; i++) {
+        if (isWorkday(d)) { workdays.push(new Date(d)); break; }
+        d.setDate(d.getDate() + 1);
+      }
+    }
 
-  for (const cand of schedulable) {
     let bestDay = null;
     let bestScore = Infinity;
 
-    for (const day of cand.workdays) {
+    for (const day of workdays) {
       const dayStr = day.toISOString().slice(0, 10);
       const existing = daySlots.get(dayStr) || [];
 
       if (existing.length === 0) {
-        // Empty day — prefer days that are closer to the middle of the window
         const midWindow = new Date(
           cand.windowStart.getTime() +
             (cand.windowEnd.getTime() - cand.windowStart.getTime()) / 2
         );
-        const dayDiff = Math.abs(day - midWindow) / (1000 * 60 * 60 * 24);
-        if (dayDiff < bestScore) {
-          bestScore = dayDiff;
-          bestDay = dayStr;
-        }
+        const score = Math.abs(day - midWindow) / (1000 * 60 * 60 * 24);
+        if (score < bestScore) { bestScore = score; bestDay = dayStr; }
       } else {
-        // Has existing jobs — score by average distance to them
         const avgDist =
           existing.reduce(
             (sum, e) => sum + distanceKm(cand.lat, cand.lng, e.lat, e.lng),
             0
           ) / existing.length;
-        // Proximity bonus: closer jobs get much better scores
         const score = avgDist * 0.1;
-        if (score < bestScore) {
-          bestScore = score;
-          bestDay = dayStr;
-        }
+        if (score < bestScore) { bestScore = score; bestDay = dayStr; }
       }
     }
 
@@ -114,13 +116,12 @@ export function buildSchedule(jobs) {
     }
   }
 
-  // Step 4: Sort each day's jobs geographically (north to south)
+  // Sort each day north-to-south and build output
   const scheduled = [];
   const sortedDays = [...daySlots.keys()].sort();
 
   for (const dayStr of sortedDays) {
     const dayJobs = daySlots.get(dayStr);
-    // Sort north to south (highest lat first)
     dayJobs.sort((a, b) => b.lat - a.lat);
 
     dayJobs.forEach((cand, idx) => {
@@ -130,30 +131,67 @@ export function buildSchedule(jobs) {
         client: cand.client,
         address: cand.address,
         amount: cand.amount,
-        depositDate: cand.depositDate.toISOString().slice(0, 10),
+        queue: cand.queue,
+        baseDate: cand.baseDate.toISOString().slice(0, 10),
         installDate: dayStr,
         sequence: idx + 1,
         totalOnDay: dayJobs.length,
-        nearby:
-          dayJobs.length > 1
-            ? dayJobs
-                .filter((_, i) => i !== idx)
-                .map((o) => ({
-                  jobId: o.jobId,
-                  dist: Math.round(distanceKm(cand.lat, cand.lng, o.lat, o.lng)),
-                }))
-            : [],
+        hasDeposit: cand.hasDeposit,
+        hasSuffix: cand.hasSuffix,
+        nearby: dayJobs.length > 1
+          ? dayJobs
+              .filter((_, i) => i !== idx)
+              .map((o) => ({
+                jobId: o.jobId,
+                client: o.client,
+                dist: Math.round(distanceKm(cand.lat, cand.lng, o.lat, o.lng)),
+              }))
+          : [],
       });
     });
   }
 
-  return {
-    scheduled,
-    unschedulable: unschedulable.map((c) => ({
-      jobId: c.jobId,
-      client: c.client,
-      depositDate: c.depositDate.toISOString().slice(0, 10),
-      reason: 'No Tue-Fri workdays in 20-25 day window',
-    })),
-  };
+  // Build week structure for calendar
+  const weeks = [];
+  if (sortedDays.length) {
+    const firstDay = new Date(sortedDays[0] + 'T00:00:00');
+    const lastDay = new Date(sortedDays[sortedDays.length - 1] + 'T00:00:00');
+
+    // Start from Monday of first week
+    const start = new Date(firstDay);
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+
+    const end = new Date(lastDay);
+    end.setDate(end.getDate() + (5 - end.getDay()));
+
+    const d = new Date(start);
+    let currentWeek = [];
+    while (d <= end) {
+      const dayStr = d.toISOString().slice(0, 10);
+      const dayNum = d.getDay();
+      if (dayNum >= 1 && dayNum <= 5) {
+        currentWeek.push({
+          date: dayStr,
+          dayName: d.toLocaleDateString('en-AU', { weekday: 'short' }),
+          dayNum: d.getDate(),
+          month: d.toLocaleDateString('en-AU', { month: 'short' }),
+          isWorkday: dayNum >= 2,
+          jobs: scheduled.filter((s) => s.installDate === dayStr),
+        });
+      }
+      if (dayNum === 5) {
+        weeks.push({
+          label: `Week of ${currentWeek[0]?.date || dayStr}`,
+          days: currentWeek,
+        });
+        currentWeek = [];
+      }
+      d.setDate(d.getDate() + 1);
+    }
+    if (currentWeek.length) {
+      weeks.push({ label: `Week of ${currentWeek[0]?.date}`, days: currentWeek });
+    }
+  }
+
+  return { scheduled, weeks };
 }
