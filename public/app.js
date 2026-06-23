@@ -182,14 +182,22 @@ function renderBoard() {
   const view = VIEWS[currentView];
   const viewColumnNames = new Set(view.columns.map(c => c.name));
 
-  // Bucket jobs into this view's columns
+  // Bucket jobs into this view's columns, overflow into "Other"
   const jobsByQueue = new Map();
   for (const col of view.columns) jobsByQueue.set(col.name, []);
+  jobsByQueue.set('Other', []);
   for (const j of jobs) {
     const q = effectiveQueue(j);
     if (viewColumnNames.has(q)) {
       jobsByQueue.get(q).push(j);
+    } else {
+      jobsByQueue.get('Other').push(j);
     }
+  }
+  // Add "Other" column config if it has jobs
+  const allColumns = [...view.columns];
+  if (jobsByQueue.get('Other').length > 0) {
+    allColumns.push({ name: 'Other', wip: null });
   }
 
   // Sort: most recently edited first
@@ -203,7 +211,7 @@ function renderBoard() {
   document.getElementById('view-count').textContent = `${viewTotal} in view`;
 
   let html = '<div class="board-inner">';
-  for (const col of view.columns) {
+  for (const col of allColumns) {
     const colJobs = jobsByQueue.get(col.name) || [];
     const wipClass = col.wip
       ? colJobs.length > col.wip ? 'over-limit' : colJobs.length === col.wip ? 'at-limit' : ''
