@@ -161,17 +161,22 @@ export function buildSchedule(jobs, overrides = {}) {
     if (j.status !== 'Work Order') return false;
     if (!j.generated_job_id || j.generated_job_id === 'SAMPLE') return false;
     if (!j.lat || !j.lng) return false;
-    // Only schedule jobs with deposit confirmed (suffix letter on job number)
-    const hasSuffix = /[A-Za-z]$/.test(j.generated_job_id);
+    // Deposit confirmed = partial invoice with letter suffix in materials, or payment_date set
+    const hasPartialInvoice = (j.materials || []).some(
+      m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
+    );
     const hasPayment = j.payment_date && !j.payment_date.startsWith('0000');
-    if (!hasSuffix && !hasPayment) return false;
+    if (!hasPartialInvoice && !hasPayment) return false;
     return true;
   });
 
   if (!eligible.length) return { scheduled: [], weeks: [], totalEligible: 0 };
 
   const candidates = eligible.map((j) => {
-    const hasSuffix = /[A-Za-z]$/.test(j.generated_job_id);
+    const hasPartialInvoice = (j.materials || []).some(
+      m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
+    );
+    const hasSuffix = hasPartialInvoice;
     const hasPayment = j.payment_date && !j.payment_date.startsWith('0000');
     const amount = parseFloat(j.total_invoice_amount || 0);
     const est = estimateFromMaterials(j.materials);
