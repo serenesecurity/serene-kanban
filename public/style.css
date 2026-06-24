@@ -388,32 +388,19 @@ body {
 .toast-info { background: #0ea5e9; }
 .toast-error { background: #dc2626; }
 
-/* Schedule panel */
-#schedule-btn {
-  padding: 6px 14px;
-  border-radius: 6px;
-  border: 1px solid #7c3aed;
-  background: transparent;
-  color: #a78bfa;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-#schedule-btn:hover { background: #7c3aed; color: #fff; }
-.schedule-panel {
-  background: #1e293b;
-  border-radius: 14px;
-  max-width: 960px;
-  width: 100%;
-  max-height: 85vh;
+/* Schedule view */
+.schedule-view {
+  flex: 1;
   overflow-y: auto;
-  box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+  padding: 16px;
+}
+.schedule-body {
+  max-width: 100%;
 }
 .schedule-empty {
   text-align: center;
   color: var(--text-muted);
-  padding: 32px 0;
+  padding: 48px 0;
   font-size: 14px;
 }
 

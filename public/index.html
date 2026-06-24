@@ -19,6 +19,7 @@
         <button class="view-btn" data-view="sales" onclick="setView('sales')">Sales</button>
         <button class="view-btn active" data-view="production" onclick="setView('production')">Production</button>
         <button class="view-btn" data-view="installation" onclick="setView('installation')">Installation</button>
+        <button class="view-btn" data-view="schedule" onclick="setView('schedule')">Schedule</button>
       </div>
       <div class="filter-group">
         <button class="filter-btn" data-filter="all" onclick="setFilter('all')">All</button>
@@ -28,7 +29,6 @@
       <input type="text" id="search" placeholder="Search jobs…" autocomplete="off">
       <span id="view-count" class="job-count"></span>
       <span id="job-count" class="job-count"></span>
-      <button id="schedule-btn" onclick="openSchedule()">Schedule</button>
       <button id="sync-btn" onclick="handleSync()">Sync</button>
     </div>
   </header>
@@ -54,19 +54,10 @@
     </div>
   </div>
 
-  <!-- Schedule panel -->
-  <div id="schedule-backdrop" class="modal-backdrop" style="display:none" onclick="closeSchedule(event)">
-    <div class="schedule-panel" onclick="event.stopPropagation()">
-      <div class="modal-header">
-        <div>
-          <h2>Recommended Installation Schedule</h2>
-          <p style="font-size:12px;color:#64748b;margin-top:2px;">Based on deposit dates, 20-25 day window, Tue-Fri only, geographic clustering</p>
-        </div>
-        <button class="modal-close" onclick="closeSchedule()">&times;</button>
-      </div>
-      <div id="schedule-body" class="modal-body">
-        <p style="color:#64748b;">Loading...</p>
-      </div>
+  <!-- Schedule view -->
+  <div id="schedule-view" class="schedule-view hidden">
+    <div id="schedule-body" class="schedule-body">
+      <p style="color:#64748b;">Loading...</p>
     </div>
   </div>
 

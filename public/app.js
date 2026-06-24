@@ -78,7 +78,16 @@ function setView(view) {
   document.querySelectorAll('.view-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.view === view);
   });
-  renderBoard();
+
+  if (view === 'schedule') {
+    document.getElementById('board').classList.add('hidden');
+    document.getElementById('schedule-view').classList.remove('hidden');
+    loadSchedule();
+  } else {
+    document.getElementById('board').classList.remove('hidden');
+    document.getElementById('schedule-view').classList.add('hidden');
+    renderBoard();
+  }
 }
 
 // --- Filters ---
@@ -451,23 +460,17 @@ function showToast(message, type = 'info') {
   toastTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
 }
 
-// --- Schedule panel ---
-async function openSchedule() {
-  document.getElementById('schedule-backdrop').style.display = 'flex';
-  document.getElementById('schedule-body').innerHTML = '<p style="color:#64748b;">Loading...</p>';
+// --- Schedule view ---
+async function loadSchedule() {
+  document.getElementById('schedule-body').innerHTML = '<p style="color:#64748b;text-align:center;padding:40px;">Loading schedule...</p>';
 
   try {
     const res = await fetch('/api/schedule');
     const data = await res.json();
     renderSchedule(data);
   } catch {
-    document.getElementById('schedule-body').innerHTML = '<p style="color:#ef4444;">Failed to load schedule</p>';
+    document.getElementById('schedule-body').innerHTML = '<p style="color:#ef4444;text-align:center;padding:40px;">Failed to load schedule</p>';
   }
-}
-
-function closeSchedule(e) {
-  if (e && e.target && e.target !== document.getElementById('schedule-backdrop')) return;
-  document.getElementById('schedule-backdrop').style.display = 'none';
 }
 
 function renderSchedule(data) {
