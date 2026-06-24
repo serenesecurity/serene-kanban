@@ -1,4 +1,5 @@
 node_modules/
 kanban-cache.json
+schedule-overrides.json
 .env
 /index.html

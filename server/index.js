@@ -19,6 +19,12 @@ import { createServiceM8Client } from './servicem8.js';
 import { createSyncManager } from './sync.js';
 import { createCache } from './cache.js';
 import { buildSchedule } from './scheduler.js';
+import { readFileSync as readF, writeFileSync as writeF } from 'fs';
+
+const overridesPath = join(__dirname, '..', 'schedule-overrides.json');
+let scheduleOverrides = {};
+try { scheduleOverrides = JSON.parse(readF(overridesPath, 'utf-8')); } catch {}
+function saveOverrides() { writeF(overridesPath, JSON.stringify(scheduleOverrides), 'utf-8'); }
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -95,7 +101,33 @@ app.post('/api/sync', async (_req, res) => {
 
 app.get('/api/schedule', (_req, res) => {
   const jobs = cache.getJobs();
-  res.json(buildSchedule(jobs));
+  res.json(buildSchedule(jobs, scheduleOverrides));
+});
+
+app.get('/api/schedule/overrides', (_req, res) => {
+  res.json(scheduleOverrides);
+});
+
+app.patch('/api/schedule/:uuid', (req, res) => {
+  const { uuid } = req.params;
+  const { installDate } = req.body;
+  if (!installDate) return res.status(400).json({ error: 'installDate required' });
+  scheduleOverrides[uuid] = { installDate };
+  saveOverrides();
+  res.json({ ok: true });
+});
+
+app.delete('/api/schedule/:uuid', (req, res) => {
+  const { uuid } = req.params;
+  scheduleOverrides[uuid] = { removed: true };
+  saveOverrides();
+  res.json({ ok: true });
+});
+
+app.post('/api/schedule/reset', (_req, res) => {
+  scheduleOverrides = {};
+  saveOverrides();
+  res.json({ ok: true });
 });
 
 app.post('/api/webhook', async (req, res) => {

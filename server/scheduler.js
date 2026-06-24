@@ -156,7 +156,7 @@ function addTravelTime(routed) {
   }
 }
 
-export function buildSchedule(jobs) {
+export function buildSchedule(jobs, overrides = {}) {
   const eligible = jobs.filter((j) => {
     if (j.status !== 'Work Order') return false;
     if (!j.generated_job_id || j.generated_job_id === 'SAMPLE') return false;
@@ -191,8 +191,18 @@ export function buildSchedule(jobs) {
     };
   });
 
+  // Apply overrides: remove or pin jobs
+  const pinned = []; // jobs with a forced date
+  const removed = new Set();
+  for (const cand of candidates) {
+    const ov = overrides[cand.uuid];
+    if (ov?.removed) { removed.add(cand.uuid); continue; }
+    if (ov?.installDate) { cand.pinnedDate = ov.installDate; pinned.push(cand); }
+  }
+  const unpinned = candidates.filter(c => !removed.has(c.uuid) && !c.pinnedDate);
+
   // Deposit first, then big jobs first
-  candidates.sort((a, b) => {
+  unpinned.sort((a, b) => {
     if (a.hasDeposit !== b.hasDeposit) return a.hasDeposit ? -1 : 1;
     return b.hours - a.hours;
   });
@@ -217,7 +227,19 @@ export function buildSchedule(jobs) {
     d.setDate(d.getDate() + 1);
   }
 
-  for (const cand of candidates) {
+  // Place pinned jobs first
+  for (const cand of pinned) {
+    const dayStr = cand.pinnedDate;
+    if (!dayHours.has(dayStr)) {
+      // Add the day even if it's not a normal workday
+      dayHours.set(dayStr, 0);
+      dayJobs.set(dayStr, []);
+    }
+    dayJobs.get(dayStr).push(cand);
+    dayHours.set(dayStr, dayHours.get(dayStr) + cand.hours);
+  }
+
+  for (const cand of unpinned) {
     // Determine which days this job can be scheduled
     let allowedDays;
     if (cand.depositDate) {

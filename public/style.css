@@ -508,6 +508,39 @@ body {
   font-weight: 600;
   color: var(--text);
 }
+.cal-job-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.cal-act-btn {
+  flex: 1;
+  padding: 4px 0;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-dim);
+  transition: all 0.12s;
+}
+.cal-act-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+.cal-act-remove:hover { background: rgba(239,68,68,0.2); color: #f87171; }
+.cal-act-view:hover { background: rgba(56,189,248,0.2); color: #38bdf8; }
+.cal-reset-btn {
+  border: none;
+  background: none;
+  color: #a78bfa;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 8px;
+  text-decoration: underline;
+}
+.cal-reset-btn:hover { color: #c4b5fd; }
 .cal-summary {
   text-align: center;
   font-size: 12px;

@@ -514,12 +514,17 @@ function renderSchedule(data) {
           const depositTag = job.hasDeposit ? '<span class="cal-tag cal-tag-paid">Deposit</span>' : '<span class="cal-tag cal-tag-pending">No deposit</span>';
           const sizeTag = `<span class="cal-tag cal-tag-size">${esc(job.sizeLabel)}</span>`;
 
-          html += `<div class="cal-job" onclick='openModal("${job.uuid}")'>`;
+          html += `<div class="cal-job" data-uuid="${job.uuid}" data-date="${job.installDate}">`;
           if (job.travelMins > 0) html += `<div class="cal-job-travel">🚐 ${job.travelKm}km · ${job.travelMins}min</div>`;
           if (job.multiDay) html += `<div class="cal-job-multiday">${esc(job.dayPart)}</div>`;
           html += `<div class="cal-job-client">${esc(job.client)}</div>`;
           html += `<div class="cal-job-desc">${summariseItems(job.items)}</div>`;
           html += `<div class="cal-job-meta"><span>${esc(job.jobId)}</span><span>${job.hours}h</span>${job.hasDeposit ? '<span class="cal-paid">Paid</span>' : ''}</div>`;
+          html += `<div class="cal-job-actions">`;
+          html += `<button class="cal-act-btn" onclick="event.stopPropagation();moveScheduleJob('${job.uuid}','${job.installDate}')">Move</button>`;
+          html += `<button class="cal-act-btn cal-act-remove" onclick="event.stopPropagation();removeScheduleJob('${job.uuid}')">Remove</button>`;
+          html += `<button class="cal-act-btn cal-act-view" onclick="event.stopPropagation();openModal('${job.uuid}')">View</button>`;
+          html += `</div>`;
           html += `</div>`;
         }
       }
@@ -533,7 +538,7 @@ function renderSchedule(data) {
   // Summary
   const totalJobs = data.scheduled.length;
   const withDeposit = data.scheduled.filter(s => s.hasDeposit).length;
-  html += `<div class="cal-summary">${totalJobs} installations recommended across ${data.weeks.length} week${data.weeks.length > 1 ? 's' : ''} | ${withDeposit} with deposit confirmed</div>`;
+  html += `<div class="cal-summary">${totalJobs} installations across ${data.weeks.length} weeks | ${withDeposit} deposit confirmed <button class="cal-reset-btn" onclick="resetSchedule()">Reset to recommended</button></div>`;
 
   body.innerHTML = html;
 }
@@ -559,6 +564,47 @@ function formatSchedDate(str) {
   if (!str) return '';
   const d = new Date(str + 'T00:00:00');
   return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// --- Schedule editing ---
+async function moveScheduleJob(uuid, currentDate) {
+  const newDate = prompt('Move to date (YYYY-MM-DD):', currentDate);
+  if (!newDate || newDate === currentDate) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) { showToast('Invalid date format', 'error'); return; }
+
+  try {
+    await fetch(`/api/schedule/${uuid}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ installDate: newDate }),
+    });
+    loadSchedule();
+    showToast('Job moved');
+  } catch {
+    showToast('Failed to move job', 'error');
+  }
+}
+
+async function removeScheduleJob(uuid) {
+  if (!confirm('Remove this job from the schedule?')) return;
+  try {
+    await fetch(`/api/schedule/${uuid}`, { method: 'DELETE' });
+    loadSchedule();
+    showToast('Job removed from schedule');
+  } catch {
+    showToast('Failed to remove job', 'error');
+  }
+}
+
+async function resetSchedule() {
+  if (!confirm('Reset all schedule changes back to recommended?')) return;
+  try {
+    await fetch('/api/schedule/reset', { method: 'POST' });
+    loadSchedule();
+    showToast('Schedule reset');
+  } catch {
+    showToast('Failed to reset', 'error');
+  }
 }
 
 // --- Close app switcher on outside click ---
