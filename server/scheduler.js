@@ -161,6 +161,10 @@ export function buildSchedule(jobs, overrides = {}) {
     if (j.status !== 'Work Order') return false;
     if (!j.generated_job_id || j.generated_job_id === 'SAMPLE') return false;
     if (!j.lat || !j.lng) return false;
+    // Only schedule jobs with deposit confirmed (suffix letter on job number)
+    const hasSuffix = /[A-Za-z]$/.test(j.generated_job_id);
+    const hasPayment = j.payment_date && !j.payment_date.startsWith('0000');
+    if (!hasSuffix && !hasPayment) return false;
     return true;
   });
 
