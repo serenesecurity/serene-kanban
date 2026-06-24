@@ -13,7 +13,6 @@ function distanceKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Estimate drive time: ~1.5 min per km (avg suburban speed ~40km/h)
 function travelHours(km) {
   return Math.round((km / 40) * 10) / 10;
 }
@@ -23,69 +22,67 @@ function isWorkday(date) {
   return day >= 2 && day <= 5;
 }
 
-const ITEM_PATTERNS = [
-  [/pivot\s*door/gi, 2.5, 'Pivot Door'],
-  [/french\s*door/gi, 2.25, 'French Door'],
-  [/centre\s*close/gi, 1.75, 'Centre Close'],
-  [/double\s*stack/gi, 2.0, 'Double Stacking'],
-  [/outdoor\s*blind|patio\s*blind|external\s*blind|zip\s*screen/gi, 2.5, 'Outdoor Blind'],
-  [/sliding\s*(screen|door|security)/gi, 1.25, 'Sliding Door'],
-  [/sliding/gi, 1.25, 'Sliding Door'],
-  [/hinged\s*(door|screen)/gi, 1.5, 'Hinged Door'],
-  [/roller\s*blind|internal\s*blind/gi, 0.3, 'Roller Blind'],
-  [/window\s*(screen|security)|security\s*screen/gi, 0.3, 'Window Screen'],
-  [/window/gi, 0.3, 'Window Screen'],
-  [/blind/gi, 0.3, 'Blind'],
-  [/door/gi, 1.25, 'Door'],
-  [/screen/gi, 0.3, 'Screen'],
+// --- Duration from billing line items ---
+// Each: [regex on item name, hours per unit]
+const ITEM_DURATION = [
+  [/pivot.*door|pivot.*protect/i, 2.5],
+  [/french.*door/i, 2.25],
+  [/centre\s*close/i, 1.75],
+  [/double\s*stacking/i, 2.0],
+  [/zip\s*(blind|screen)|zipscreen|outdoor.*blind|patio.*blind|external.*blind/i, 2.5],
+  [/sliding.*door|sliding.*protect|sliding.*intrudaguard|sliding.*security|sliding.*grill/i, 1.25],
+  [/hinged.*door|hinged.*protect|hinged.*intrudaguard|hinged.*security|hinged.*grill/i, 1.5],
+  [/roller\s*blind|internal\s*blind|kleenscreen/i, 0.3],
+  [/plantation\s*shutter/i, 0.5],
+  [/window\s*screen|window.*mesh|window.*grill/i, 0.3],
 ];
 
-function estimateFromDescription(desc, amount) {
-  if (!desc || !desc.trim()) {
-    // Fallback to amount-based estimate
-    if (amount >= 5000) return { hours: 14, items: [{ label: 'Large job (est.)', qty: 1, hours: 14 }], method: 'amount' };
-    if (amount >= 2500) return { hours: 7, items: [{ label: 'Medium job (est.)', qty: 1, hours: 7 }], method: 'amount' };
-    if (amount >= 800) return { hours: 4, items: [{ label: 'Standard job (est.)', qty: 1, hours: 4 }], method: 'amount' };
-    return { hours: 2, items: [], method: 'default' };
-  }
+// Items to skip (not installable products)
+const SKIP_PATTERNS = [
+  /colour/i, /discount/i, /surcharge/i, /powder\s*coat/i, /partial\s*invoice/i,
+  /credit\s*card/i, /processing\s*fee/i, /includes\s*supply/i, /framing\s*colour/i,
+  /build-out/i, /accessori/i, /remote/i, /hub/i, /motor/i, /sensor/i,
+  /ballast/i, /cassette/i, /bolt\s*lock/i, /stop\s*bead/i, /jamb/i,
+  /pet\s*door/i, /door\s*closer/i, /yale/i, /pricing\s*valid/i,
+  /louver/i, /support\s*post/i, /track/i,
+];
 
-  const text = desc.toLowerCase();
+function estimateFromMaterials(materials) {
+  if (!materials || !materials.length) return { hours: 2, items: [], method: 'default' };
+
   const items = [];
   let totalHours = 0;
-  const used = new Set();
 
-  for (const [pattern, hours, label] of ITEM_PATTERNS) {
-    const matches = text.match(pattern);
-    if (!matches) continue;
+  for (const mat of materials) {
+    const name = mat.name || '';
+    const qty = Math.max(0, mat.quantity || 0);
+    if (qty <= 0) continue;
+    if (SKIP_PATTERNS.some((p) => p.test(name))) continue;
 
-    for (const m of matches) {
-      const pos = text.indexOf(m);
-      let skip = false;
-      for (const u of used) {
-        if (Math.abs(pos - u) < m.length + 5) { skip = true; break; }
+    let matched = false;
+    for (const [pattern, hoursPerUnit] of ITEM_DURATION) {
+      if (pattern.test(name)) {
+        const h = Math.round(hoursPerUnit * qty * 10) / 10;
+        items.push({ label: name.split(' - ')[0].split(' -- ')[0].trim(), qty, hours: h });
+        totalHours += h;
+        matched = true;
+        break;
       }
-      if (skip) continue;
-      used.add(pos);
+    }
 
-      const before = desc.substring(Math.max(0, pos - 15), pos);
-      const qtyMatch = before.match(/(\d+)\s*(?:x\s*)?$/i);
-      const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
-
-      items.push({ label, qty, hours: Math.round(hours * qty * 10) / 10 });
-      totalHours += hours * qty;
+    if (!matched) {
+      // Unknown installable item — assume 1h each
+      items.push({ label: name.split(' - ')[0].split(' -- ')[0].trim(), qty, hours: qty * 1 });
+      totalHours += qty * 1;
     }
   }
 
-  if (!items.length) {
-    if (amount >= 5000) return { hours: 14, items: [{ label: 'Large job (est.)', qty: 1, hours: 14 }], method: 'amount' };
-    if (amount >= 2500) return { hours: 7, items: [{ label: 'Medium job (est.)', qty: 1, hours: 7 }], method: 'amount' };
-    return { hours: 2, items: [], method: 'default' };
-  }
+  if (!items.length) return { hours: 2, items: [], method: 'default' };
 
-  // Setup/cleanup buffer per job
+  // Setup/cleanup buffer
   totalHours += 0.5;
 
-  return { hours: Math.round(totalHours * 10) / 10, items, method: 'items' };
+  return { hours: Math.round(totalHours * 10) / 10, items, method: 'materials' };
 }
 
 function sizeLabel(hours) {
@@ -119,11 +116,9 @@ function routeOrder(jobs) {
   return ordered;
 }
 
-// Calculate travel time for a routed list of jobs (from home, between jobs)
 function addTravelTime(routed) {
   let prevLat = HOME_LAT;
   let prevLng = HOME_LNG;
-
   for (const job of routed) {
     const km = distanceKm(prevLat, prevLng, job.lat, job.lng);
     job.travelKm = Math.round(km);
@@ -161,14 +156,13 @@ export function buildSchedule(jobs) {
     const hasSuffix = /[A-Za-z]$/.test(j.generated_job_id);
     const hasPayment = j.payment_date && !j.payment_date.startsWith('0000');
     const amount = parseFloat(j.total_invoice_amount || 0);
-    const est = estimateFromDescription(j.job_description, amount);
+    const est = estimateFromMaterials(j.materials);
 
     return {
       uuid: j.uuid,
       jobId: j.generated_job_id,
       client: j.company_name || 'Unknown',
       address: j.job_address || '',
-      description: j.job_description || '',
       lat: parseFloat(j.lat),
       lng: parseFloat(j.lng),
       amount,
@@ -181,7 +175,7 @@ export function buildSchedule(jobs) {
     };
   });
 
-  // Deposit first, then by hours descending (big jobs get priority for space)
+  // Deposit first, then big jobs first (get good day slots)
   candidates.sort((a, b) => {
     if (a.hasDeposit !== b.hasDeposit) return a.hasDeposit ? -1 : 1;
     return b.hours - a.hours;
@@ -197,77 +191,73 @@ export function buildSchedule(jobs) {
   }
 
   for (const cand of candidates) {
-    // Multi-day jobs: split across consecutive workdays
     let remaining = cand.hours;
     const dayKeys = [...dayHours.keys()];
-    let assigned = false;
 
+    // Multi-day jobs
     if (remaining > DAY_CAPACITY) {
-      // Find consecutive workdays with enough total capacity
+      let assigned = false;
       for (let i = 0; i < dayKeys.length; i++) {
         let totalAvail = 0;
         let span = 0;
         for (let j = i; j < dayKeys.length && totalAvail < remaining; j++) {
           const avail = DAY_CAPACITY - dayHours.get(dayKeys[j]);
-          if (avail <= 0) break;
+          if (avail < 2) break; // need at least 2h to be useful
           totalAvail += avail;
           span++;
         }
         if (totalAvail >= remaining) {
-          for (let j = i; j < i + span && remaining > 0; j++) {
+          let rem = remaining;
+          for (let j = i; j < i + span && rem > 0; j++) {
             const avail = DAY_CAPACITY - dayHours.get(dayKeys[j]);
-            const use = Math.min(avail, remaining);
+            const use = Math.min(avail, rem);
             const part = { ...cand, hours: use, multiDay: true, dayPart: `Day ${j - i + 1} of ${span}` };
             dayJobs.get(dayKeys[j]).push(part);
             dayHours.set(dayKeys[j], dayHours.get(dayKeys[j]) + use);
-            remaining -= use;
+            rem -= use;
           }
           assigned = true;
           break;
         }
       }
+      if (assigned) continue;
     }
 
-    if (!assigned) {
-      // Single-day assignment with proximity clustering
-      let bestDay = null;
-      let bestScore = Infinity;
+    // Single-day with travel + proximity
+    let bestDay = null;
+    let bestScore = Infinity;
 
-      for (const [dayStr, usedHours] of dayHours) {
-        const existing = dayJobs.get(dayStr);
-        // Check capacity including estimated travel
-        const travelEst = existing.length > 0
-          ? travelHours(distanceKm(cand.lat, cand.lng,
-              existing[existing.length - 1].lat, existing[existing.length - 1].lng))
-          : travelHours(distanceKm(HOME_LAT, HOME_LNG, cand.lat, cand.lng));
+    for (const [dayStr, usedHours] of dayHours) {
+      const existing = dayJobs.get(dayStr);
+      const travelEst = existing.length > 0
+        ? travelHours(distanceKm(cand.lat, cand.lng, existing[existing.length - 1].lat, existing[existing.length - 1].lng))
+        : travelHours(distanceKm(HOME_LAT, HOME_LNG, cand.lat, cand.lng));
 
-        if (usedHours + cand.hours + travelEst > DAY_CAPACITY) continue;
+      if (usedHours + cand.hours + travelEst > DAY_CAPACITY) continue;
 
-        if (existing.length === 0) {
-          const dayIdx = [...dayHours.keys()].indexOf(dayStr);
-          const score = 1000 + dayIdx;
-          if (score < bestScore) { bestScore = score; bestDay = dayStr; }
-        } else {
-          const avgDist = existing.reduce(
-            (sum, e) => sum + distanceKm(cand.lat, cand.lng, e.lat, e.lng), 0
-          ) / existing.length;
-          if (avgDist < bestScore) { bestScore = avgDist; bestDay = dayStr; }
-        }
+      if (existing.length === 0) {
+        const dayIdx = dayKeys.indexOf(dayStr);
+        const score = 1000 + dayIdx;
+        if (score < bestScore) { bestScore = score; bestDay = dayStr; }
+      } else {
+        const avgDist = existing.reduce(
+          (sum, e) => sum + distanceKm(cand.lat, cand.lng, e.lat, e.lng), 0
+        ) / existing.length;
+        if (avgDist < bestScore) { bestScore = avgDist; bestDay = dayStr; }
       }
+    }
 
-      if (bestDay) {
-        dayJobs.get(bestDay).push(cand);
-        const travelEst = dayJobs.get(bestDay).length > 1
-          ? travelHours(distanceKm(cand.lat, cand.lng,
-              dayJobs.get(bestDay)[dayJobs.get(bestDay).length - 2].lat,
-              dayJobs.get(bestDay)[dayJobs.get(bestDay).length - 2].lng))
-          : travelHours(distanceKm(HOME_LAT, HOME_LNG, cand.lat, cand.lng));
-        dayHours.set(bestDay, dayHours.get(bestDay) + cand.hours + travelEst);
-      }
+    if (bestDay) {
+      const existing = dayJobs.get(bestDay);
+      const travelEst = existing.length > 0
+        ? travelHours(distanceKm(cand.lat, cand.lng, existing[existing.length - 1].lat, existing[existing.length - 1].lng))
+        : travelHours(distanceKm(HOME_LAT, HOME_LNG, cand.lat, cand.lng));
+      dayJobs.get(bestDay).push(cand);
+      dayHours.set(bestDay, dayHours.get(bestDay) + cand.hours + travelEst);
     }
   }
 
-  // Route each day and calculate travel
+  // Route and build output
   const scheduled = [];
   for (const [dayStr, jobs] of dayJobs) {
     if (!jobs.length) continue;
@@ -327,7 +317,9 @@ export function buildSchedule(jobs) {
       const dayStr = day.toISOString().slice(0, 10);
       const dayNum = day.getDay();
       const dJobs = scheduled.filter((s) => s.installDate === dayStr);
-      const hoursUsed = dJobs.length ? Math.round(dayHours.get(dayStr) * 10) / 10 : 0;
+      const hoursUsed = dJobs.length
+        ? Math.round(dayHours.get(dayStr) * 10) / 10
+        : 0;
 
       days.push({
         date: dayStr,

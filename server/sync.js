@@ -8,10 +8,11 @@ export function createSyncManager(sm8, cache, sse) {
     syncing = true;
 
     try {
-      const [allJobs, queues, companies] = await Promise.all([
+      const [allJobs, queues, companies, allMaterials] = await Promise.all([
         sm8.fetchAllJobs(),
         sm8.fetchAllQueues(),
         sm8.fetchAllCompanies(),
+        sm8.fetchAllJobMaterials(),
       ]);
 
       const companyMap = new Map();
@@ -24,12 +25,24 @@ export function createSyncManager(sm8, cache, sse) {
         queueMap.set(q.uuid, q.name);
       }
 
+      // Group materials by job_uuid
+      const materialsMap = new Map();
+      for (const m of allMaterials) {
+        if (!m.job_uuid) continue;
+        if (!materialsMap.has(m.job_uuid)) materialsMap.set(m.job_uuid, []);
+        materialsMap.get(m.job_uuid).push({
+          name: m.name || '',
+          quantity: parseFloat(m.quantity) || 0,
+        });
+      }
+
       const jobs = allJobs
         .filter((j) => VALID_STATUSES.has(j.status))
         .map((j) => ({
           ...j,
           company_name: companyMap.get(j.company_uuid) || '',
           queue_name: queueMap.get(j.queue_uuid) || '',
+          materials: materialsMap.get(j.uuid) || [],
         }));
 
       const orderedQueues = queues

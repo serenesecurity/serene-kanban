@@ -33,6 +33,9 @@ export function createServiceM8Client(apiKey) {
     fetchCompanyName(uuid) {
       return request(`/company/${uuid}.json`).then((c) => c.name || '');
     },
+    fetchAllJobMaterials() {
+      return request('/jobmaterial.json');
+    },
     updateJob(uuid, data) {
       return request(`/job/${uuid}.json`, {
         method: 'POST',
