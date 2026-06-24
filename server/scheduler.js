@@ -133,9 +133,8 @@ export function buildSchedule(jobs) {
   if (!eligible.length) return { scheduled: [], weeks: [], totalEligible: 0 };
 
   const candidates = eligible.map((j) => {
-    const payDate =
-      j.payment_date && !j.payment_date.startsWith('0000') ? j.payment_date : null;
     const est = estimateFromDescription(j.job_description);
+    const hasSuffix = /[A-Za-z]$/.test(j.generated_job_id);
 
     return {
       uuid: j.uuid,
@@ -150,8 +149,8 @@ export function buildSchedule(jobs) {
       items: est.items,
       estMethod: est.method,
       queue: j.queue_name || '',
-      hasDeposit: !!payDate,
-      hasSuffix: /[A-Za-z]$/.test(j.generated_job_id),
+      hasDeposit: hasSuffix,
+      hasSuffix,
     };
   });
 
