@@ -22,14 +22,22 @@ function isWorkday(date) {
   return day >= 2 && day <= 5;
 }
 
-// --- Duration from billing line items ---
-// Each: [regex on item name, hours per unit]
+function getWorkdays(start, end) {
+  const days = [];
+  const d = new Date(start);
+  while (d <= end) {
+    if (isWorkday(d)) days.push(new Date(d));
+    d.setDate(d.getDate() + 1);
+  }
+  return days;
+}
+
 const ITEM_DURATION = [
   [/pivot.*door|pivot.*protect/i, 2.5],
   [/french.*door/i, 2.25],
   [/centre\s*close/i, 1.75],
   [/double\s*stacking/i, 2.0],
-  [/zip\s*(blind|screen)|zipscreen|outdoor.*blind|patio.*blind|external.*blind/i, 2.5],
+  [/zip\s*(blind|screen)|zipscreen|external.*blind|patio.*blind/i, 2.5],
   [/sliding.*door|sliding.*protect|sliding.*intrudaguard|sliding.*security|sliding.*grill/i, 1.25],
   [/hinged.*door|hinged.*protect|hinged.*intrudaguard|hinged.*security|hinged.*grill/i, 1.5],
   [/roller\s*blind|internal\s*blind|kleenscreen/i, 0.3],
@@ -37,23 +45,34 @@ const ITEM_DURATION = [
   [/window\s*screen|window.*mesh|window.*grill/i, 0.3],
 ];
 
-// Items to skip (not installable products)
 const SKIP_PATTERNS = [
   /colour/i, /discount/i, /surcharge/i, /powder\s*coat/i, /partial\s*invoice/i,
   /credit\s*card/i, /processing\s*fee/i, /includes\s*supply/i, /framing\s*colour/i,
   /build-out/i, /accessori/i, /remote/i, /hub/i, /motor/i, /sensor/i,
-  /ballast/i, /cassette/i, /bolt\s*lock/i, /stop\s*bead/i, /jamb/i,
+  /ballast/i, /cassett/i, /cassette/i, /bolt\s*lock/i, /stop\s*bead/i, /jamb/i,
   /pet\s*door/i, /door\s*closer/i, /yale/i, /pricing\s*valid/i,
-  /louver/i, /support\s*post/i, /track/i,
+  /louver/i, /support\s*post/i, /track/i, /handle/i, /pelmet/i,
 ];
+
+function deduplicateMaterials(materials) {
+  // SM8 stores multiple revisions — take the last occurrence of each unique item name
+  const seen = new Map();
+  for (const m of materials) {
+    const key = (m.name || '').trim().toLowerCase();
+    if (!key) continue;
+    seen.set(key, m);
+  }
+  return [...seen.values()];
+}
 
 function estimateFromMaterials(materials) {
   if (!materials || !materials.length) return { hours: 2, items: [], method: 'default' };
 
+  const deduped = deduplicateMaterials(materials);
   const items = [];
   let totalHours = 0;
 
-  for (const mat of materials) {
+  for (const mat of deduped) {
     const name = mat.name || '';
     const qty = Math.max(0, mat.quantity || 0);
     if (qty <= 0) continue;
@@ -71,18 +90,27 @@ function estimateFromMaterials(materials) {
     }
 
     if (!matched) {
-      // Unknown installable item — assume 1h each
-      items.push({ label: name.split(' - ')[0].split(' -- ')[0].trim(), qty, hours: qty * 1 });
-      totalHours += qty * 1;
+      items.push({ label: name.split(' - ')[0].split(' -- ')[0].trim(), qty, hours: qty });
+      totalHours += qty;
     }
   }
 
   if (!items.length) return { hours: 2, items: [], method: 'default' };
 
-  // Setup/cleanup buffer
-  totalHours += 0.5;
-
+  totalHours += 0.5; // setup buffer
   return { hours: Math.round(totalHours * 10) / 10, items, method: 'materials' };
+}
+
+// Find the deposit/suffix date from the "Partial invoice #XXXXA" line item
+function findDepositDate(materials) {
+  for (const m of materials) {
+    if (/^partial\s*invoice\s*#/i.test(m.name) && /[A-Za-z]$/i.test(m.name)) {
+      if (m.edit_date && !m.edit_date.startsWith('0000')) {
+        return new Date(m.edit_date);
+      }
+    }
+  }
+  return null;
 }
 
 function sizeLabel(hours) {
@@ -128,20 +156,6 @@ function addTravelTime(routed) {
   }
 }
 
-function getFutureWorkdays(numWeeks) {
-  const days = [];
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() + 1);
-  const end = new Date(d);
-  end.setDate(end.getDate() + numWeeks * 7);
-  while (d <= end) {
-    if (isWorkday(d)) days.push(new Date(d));
-    d.setDate(d.getDate() + 1);
-  }
-  return days;
-}
-
 export function buildSchedule(jobs) {
   const eligible = jobs.filter((j) => {
     if (j.status !== 'Work Order') return false;
@@ -157,6 +171,7 @@ export function buildSchedule(jobs) {
     const hasPayment = j.payment_date && !j.payment_date.startsWith('0000');
     const amount = parseFloat(j.total_invoice_amount || 0);
     const est = estimateFromMaterials(j.materials);
+    const depositDate = findDepositDate(j.materials);
 
     return {
       uuid: j.uuid,
@@ -172,37 +187,69 @@ export function buildSchedule(jobs) {
       queue: j.queue_name || '',
       hasDeposit: hasSuffix || hasPayment,
       hasSuffix,
+      depositDate,
     };
   });
 
-  // Deposit first, then big jobs first (get good day slots)
+  // Deposit first, then big jobs first
   candidates.sort((a, b) => {
     if (a.hasDeposit !== b.hasDeposit) return a.hasDeposit ? -1 : 1;
     return b.hours - a.hours;
   });
 
-  const workdays = getFutureWorkdays(5);
+  // Calculate the scheduling range — 5 weeks from today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const scheduleEnd = new Date(today);
+  scheduleEnd.setDate(scheduleEnd.getDate() + 35);
+
   const dayHours = new Map();
   const dayJobs = new Map();
-  for (const d of workdays) {
-    const s = d.toISOString().slice(0, 10);
-    dayHours.set(s, 0);
-    dayJobs.set(s, []);
+  // Build all workdays in range
+  const d = new Date(today);
+  d.setDate(d.getDate() + 1);
+  while (d <= scheduleEnd) {
+    if (isWorkday(d)) {
+      const s = d.toISOString().slice(0, 10);
+      dayHours.set(s, 0);
+      dayJobs.set(s, []);
+    }
+    d.setDate(d.getDate() + 1);
   }
 
   for (const cand of candidates) {
+    // Determine which days this job can be scheduled
+    let allowedDays;
+    if (cand.depositDate) {
+      // 20-25 days after deposit
+      const winStart = new Date(cand.depositDate);
+      winStart.setDate(winStart.getDate() + 20);
+      const winEnd = new Date(cand.depositDate);
+      winEnd.setDate(winEnd.getDate() + 25);
+      allowedDays = getWorkdays(winStart, winEnd).map(d => d.toISOString().slice(0, 10));
+      // If window is entirely in the past or no workdays, expand to any future day
+      const futureDays = allowedDays.filter(d => dayHours.has(d));
+      if (!futureDays.length) allowedDays = [...dayHours.keys()];
+      else allowedDays = futureDays;
+    } else {
+      // No deposit date — any future workday
+      allowedDays = [...dayHours.keys()];
+    }
+
     let remaining = cand.hours;
     const dayKeys = [...dayHours.keys()];
 
     // Multi-day jobs
     if (remaining > DAY_CAPACITY) {
       let assigned = false;
+      const allowed = new Set(allowedDays);
       for (let i = 0; i < dayKeys.length; i++) {
+        if (!allowed.has(dayKeys[i]) && allowed.size < dayKeys.length) continue;
         let totalAvail = 0;
         let span = 0;
         for (let j = i; j < dayKeys.length && totalAvail < remaining; j++) {
           const avail = DAY_CAPACITY - dayHours.get(dayKeys[j]);
-          if (avail < 2) break; // need at least 2h to be useful
+          if (avail < 2) break;
           totalAvail += avail;
           span++;
         }
@@ -223,11 +270,13 @@ export function buildSchedule(jobs) {
       if (assigned) continue;
     }
 
-    // Single-day with travel + proximity
+    // Single-day with proximity clustering — only within allowed days
     let bestDay = null;
     let bestScore = Infinity;
 
-    for (const [dayStr, usedHours] of dayHours) {
+    for (const dayStr of allowedDays) {
+      if (!dayHours.has(dayStr)) continue;
+      const usedHours = dayHours.get(dayStr);
       const existing = dayJobs.get(dayStr);
       const travelEst = existing.length > 0
         ? travelHours(distanceKm(cand.lat, cand.lng, existing[existing.length - 1].lat, existing[existing.length - 1].lng))
@@ -282,6 +331,7 @@ export function buildSchedule(jobs) {
         dayHoursUsed: Math.round(dayHours.get(dayStr) * 10) / 10,
         hasDeposit: cand.hasDeposit,
         hasSuffix: cand.hasSuffix,
+        depositDate: cand.depositDate ? cand.depositDate.toISOString().slice(0, 10) : null,
         travelKm: cand.travelKm || 0,
         travelMins: Math.round((cand.travelHours || 0) * 60),
         multiDay: cand.multiDay || false,
@@ -301,8 +351,6 @@ export function buildSchedule(jobs) {
 
   // Build 5-week calendar
   const weeks = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
   const start = new Date(today);
   start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
 
@@ -311,13 +359,13 @@ export function buildSchedule(jobs) {
     weekStart.setDate(weekStart.getDate() + w * 7);
     const days = [];
 
-    for (let d = 0; d < 5; d++) {
+    for (let di = 0; di < 5; di++) {
       const day = new Date(weekStart);
-      day.setDate(day.getDate() + d);
+      day.setDate(day.getDate() + di);
       const dayStr = day.toISOString().slice(0, 10);
       const dayNum = day.getDay();
       const dJobs = scheduled.filter((s) => s.installDate === dayStr);
-      const hoursUsed = dJobs.length
+      const hoursUsed = dayHours.has(dayStr)
         ? Math.round(dayHours.get(dayStr) * 10) / 10
         : 0;
 
