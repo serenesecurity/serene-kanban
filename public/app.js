@@ -521,9 +521,11 @@ function renderSchedule(data) {
           html += `<div class="cal-job-desc">${summariseItems(job.items)}</div>`;
           html += `<div class="cal-job-meta"><span>${esc(job.jobId)}</span><span>${job.hours}h</span>${job.hasDeposit ? '<span class="cal-paid">Paid</span>' : ''}</div>`;
           html += `<div class="cal-job-actions">`;
-          html += `<button class="cal-act-btn" onclick="event.stopPropagation();moveScheduleJob('${job.uuid}','${job.installDate}')">Move</button>`;
+          html += `<button class="cal-act-btn" onclick="event.stopPropagation();moveScheduleJob('${job.uuid}','${job.installDate}')">Date</button>`;
+          html += `<button class="cal-act-btn cal-act-reschedule" onclick="event.stopPropagation();rescheduleJob('${job.uuid}', 7)">+1w</button>`;
+          html += `<button class="cal-act-btn cal-act-reschedule" onclick="event.stopPropagation();rescheduleJob('${job.uuid}', 14)">+2w</button>`;
+          html += `<button class="cal-act-btn cal-act-reschedule" onclick="event.stopPropagation();rescheduleJob('${job.uuid}', 21)">+3w</button>`;
           html += `<button class="cal-act-btn cal-act-remove" onclick="event.stopPropagation();removeScheduleJob('${job.uuid}')">Remove</button>`;
-          html += `<button class="cal-act-btn cal-act-view" onclick="event.stopPropagation();openModal('${job.uuid}')">View</button>`;
           html += `</div>`;
           html += `</div>`;
         }
@@ -582,6 +584,23 @@ async function moveScheduleJob(uuid, currentDate) {
     showToast('Job moved');
   } catch {
     showToast('Failed to move job', 'error');
+  }
+}
+
+async function rescheduleJob(uuid, approxDays) {
+  try {
+    const res = await fetch(`/api/schedule/${uuid}/reschedule`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approxDays }),
+    });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, 'error'); return; }
+    loadSchedule();
+    const d = new Date(data.installDate + 'T00:00:00');
+    showToast(`Rescheduled to ${d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}`);
+  } catch {
+    showToast('Failed to reschedule', 'error');
   }
 }
 

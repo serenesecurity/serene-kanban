@@ -528,8 +528,8 @@ body {
   transition: all 0.12s;
 }
 .cal-act-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+.cal-act-reschedule:hover { background: rgba(139,92,246,0.2); color: #a78bfa; }
 .cal-act-remove:hover { background: rgba(239,68,68,0.2); color: #f87171; }
-.cal-act-view:hover { background: rgba(56,189,248,0.2); color: #38bdf8; }
 .cal-reset-btn {
   border: none;
   background: none;

@@ -124,6 +124,73 @@ app.delete('/api/schedule/:uuid', (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/schedule/:uuid/reschedule', (req, res) => {
+  const { uuid } = req.params;
+  const { approxDays } = req.body;
+  if (!approxDays) return res.status(400).json({ error: 'approxDays required' });
+
+  const jobs = cache.getJobs();
+  const result = buildSchedule(jobs, scheduleOverrides);
+
+  // Find the best day near the target
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(today);
+  target.setDate(target.getDate() + approxDays);
+
+  // Collect workdays in a ±4 day window around target
+  const windowStart = new Date(target);
+  windowStart.setDate(windowStart.getDate() - 4);
+  const windowEnd = new Date(target);
+  windowEnd.setDate(windowEnd.getDate() + 4);
+
+  const job = jobs.find(j => j.uuid === uuid);
+  const jobHours = result.scheduled.find(s => s.uuid === uuid)?.hours || 4;
+
+  // Score each day: prefer less loaded days closer to target
+  let bestDay = null;
+  let bestScore = Infinity;
+
+  for (const week of result.weeks) {
+    for (const day of week.days) {
+      if (!day.isWorkday) continue;
+      const dayDate = new Date(day.date + 'T00:00:00');
+      if (dayDate < windowStart || dayDate > windowEnd) continue;
+      if (dayDate <= today) continue;
+
+      const remainingCapacity = day.capacity - day.hoursUsed;
+      if (remainingCapacity < jobHours) continue;
+
+      const daysFromTarget = Math.abs(Math.round((dayDate - target) / (1000 * 60 * 60 * 24)));
+      const loadPenalty = day.hoursUsed * 0.5;
+      const score = daysFromTarget + loadPenalty;
+
+      if (score < bestScore) { bestScore = score; bestDay = day.date; }
+    }
+  }
+
+  // If nothing in window, find any future workday with capacity
+  if (!bestDay) {
+    for (const week of result.weeks) {
+      for (const day of week.days) {
+        if (!day.isWorkday) continue;
+        const dayDate = new Date(day.date + 'T00:00:00');
+        if (dayDate <= today) continue;
+        if (day.capacity - day.hoursUsed < jobHours) continue;
+        bestDay = day.date;
+        break;
+      }
+      if (bestDay) break;
+    }
+  }
+
+  if (!bestDay) return res.status(400).json({ error: 'No available day found' });
+
+  scheduleOverrides[uuid] = { installDate: bestDay };
+  saveOverrides();
+  res.json({ ok: true, installDate: bestDay });
+});
+
 app.post('/api/schedule/reset', (_req, res) => {
   scheduleOverrides = {};
   saveOverrides();
