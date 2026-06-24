@@ -502,19 +502,22 @@ function renderSchedule(data) {
       } else if (!hasJobs) {
         html += `<div class="cal-day-empty">Available</div>`;
       } else {
+        // Capacity bar
+        const pct = Math.min(100, Math.round((day.hoursUsed / day.capacity) * 100));
+        const barColor = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#22c55e';
+        html += `<div class="cal-capacity"><div class="cal-capacity-bar" style="width:${pct}%;background:${barColor}"></div><span class="cal-capacity-label">${day.hoursUsed}/${day.capacity}h</span></div>`;
+
         for (const job of day.jobs) {
-          const depositTag = job.hasDeposit ? '<span class="cal-tag cal-tag-paid">Deposit paid</span>' : '<span class="cal-tag cal-tag-pending">No deposit</span>';
-          const nearbyText = job.nearby.length
-            ? job.nearby.map(n => `${n.dist}km from ${esc(n.client)}`).join(', ')
-            : '';
+          const depositTag = job.hasDeposit ? '<span class="cal-tag cal-tag-paid">Deposit</span>' : '<span class="cal-tag cal-tag-pending">No deposit</span>';
+          const sizeTag = `<span class="cal-tag cal-tag-size">${esc(job.sizeLabel)}</span>`;
 
           html += `<div class="cal-job" onclick='openModal("${job.uuid}")'>`;
           html += `<div class="cal-job-head"><span class="cal-job-seq">#${job.sequence}</span><span class="cal-job-id">${esc(job.jobId)}</span></div>`;
           html += `<div class="cal-job-client">${esc(job.client)}</div>`;
           html += `<div class="cal-job-addr">${esc(job.address)}</div>`;
-          if (job.amount > 0) html += `<div class="cal-job-amount">$${job.amount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>`;
+          if (job.amount > 0) html += `<div class="cal-job-amount">$${job.amount.toLocaleString('en-AU', { minimumFractionDigits: 2 })} ${sizeTag}</div>`;
           html += depositTag;
-          if (nearbyText) html += `<div class="cal-job-nearby">${nearbyText}</div>`;
+          if (job.nearby.length) html += `<div class="cal-job-nearby">${job.nearby.map(n => `${n.dist}km to ${esc(n.client)}`).join(', ')}</div>`;
           html += `</div>`;
         }
       }
