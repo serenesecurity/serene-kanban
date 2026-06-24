@@ -515,17 +515,11 @@ function renderSchedule(data) {
           const sizeTag = `<span class="cal-tag cal-tag-size">${esc(job.sizeLabel)}</span>`;
 
           html += `<div class="cal-job" onclick='openModal("${job.uuid}")'>`;
-          if (job.travelMins > 0) html += `<div class="cal-job-travel">🚐 ${job.travelKm}km · ${job.travelMins}min drive</div>`;
+          if (job.travelMins > 0) html += `<div class="cal-job-travel">🚐 ${job.travelKm}km · ${job.travelMins}min</div>`;
           if (job.multiDay) html += `<div class="cal-job-multiday">${esc(job.dayPart)}</div>`;
-          html += `<div class="cal-job-head"><span class="cal-job-seq">#${job.sequence}</span><span class="cal-job-id">${esc(job.jobId)}</span></div>`;
           html += `<div class="cal-job-client">${esc(job.client)}</div>`;
-          html += `<div class="cal-job-addr">${esc(job.address)}</div>`;
-          if (job.amount > 0) html += `<div class="cal-job-amount">$${job.amount.toLocaleString('en-AU', { minimumFractionDigits: 2 })}</div>`;
-          html += `<div class="cal-job-tags">${sizeTag} <span class="cal-tag cal-tag-hours">${job.hours}h</span> ${depositTag}</div>`;
-          if (job.items && job.items.length) {
-            html += `<div class="cal-job-items">${job.items.map(i => `${i.qty}x ${esc(i.label)} (${i.hours}h)`).join(', ')}</div>`;
-          }
-          if (job.nearby.length) html += `<div class="cal-job-nearby">${job.nearby.map(n => `${n.dist}km to ${esc(n.client)}`).join(', ')}</div>`;
+          html += `<div class="cal-job-desc">${summariseItems(job.items)}</div>`;
+          html += `<div class="cal-job-meta"><span>${esc(job.jobId)}</span><span>${job.hours}h</span>${job.hasDeposit ? '<span class="cal-paid">Paid</span>' : ''}</div>`;
           html += `</div>`;
         }
       }
@@ -542,6 +536,23 @@ function renderSchedule(data) {
   html += `<div class="cal-summary">${totalJobs} installations recommended across ${data.weeks.length} week${data.weeks.length > 1 ? 's' : ''} | ${withDeposit} with deposit confirmed</div>`;
 
   body.innerHTML = html;
+}
+
+function summariseItems(items) {
+  if (!items || !items.length) return 'No items';
+  const grouped = new Map();
+  for (const i of items) {
+    const short = i.label
+      .replace(/IntrudaGuard|Premium|Panther Protect|316 Stainless Steel Mesh|Perforated Mesh|with Triple Locks|with Single Locks|Security/gi, '')
+      .replace(/\s+/g, ' ').trim();
+    const key = short || i.label;
+    grouped.set(key, (grouped.get(key) || 0) + i.qty);
+  }
+  const parts = [];
+  for (const [name, qty] of grouped) {
+    parts.push(qty > 1 ? `${qty}x ${name}` : name);
+  }
+  return esc(parts.join(', '));
 }
 
 function formatSchedDate(str) {
