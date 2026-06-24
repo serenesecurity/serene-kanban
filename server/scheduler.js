@@ -19,22 +19,73 @@ function isWorkday(date) {
   return day >= 2 && day <= 5;
 }
 
-// Estimate install hours based on job value
-function estimateHours(amount) {
-  if (amount >= 2500) return 7; // large — nearly full day
-  if (amount >= 800) return 4;  // medium — half day
-  return 2;                      // small — quick install
+// --- Item-based duration estimation ---
+// Each pattern: [regex, hours per item, label]
+const ITEM_PATTERNS = [
+  [/pivot\s*door/gi, 2.5, 'Pivot Door'],
+  [/french\s*door/gi, 2.25, 'French Door'],
+  [/centre\s*close/gi, 1.75, 'Centre Close'],
+  [/double\s*stack/gi, 2.0, 'Double Stacking'],
+  [/outdoor\s*blind|patio\s*blind|external\s*blind|zip\s*screen/gi, 2.5, 'Outdoor Blind'],
+  [/sliding\s*(screen|door|security)/gi, 1.25, 'Sliding Door'],
+  [/sliding/gi, 1.25, 'Sliding Door'],
+  [/hinged\s*(door|screen)/gi, 1.5, 'Hinged Door'],
+  [/roller\s*blind|internal\s*blind/gi, 0.3, 'Roller Blind'],
+  [/window\s*(screen|security)|security\s*screen/gi, 0.3, 'Window Screen'],
+  [/window/gi, 0.3, 'Window Screen'],
+  [/blind/gi, 0.3, 'Blind'],
+  [/door/gi, 1.25, 'Door'],
+  [/screen/gi, 0.3, 'Screen'],
+];
+
+function estimateFromDescription(desc) {
+  if (!desc || !desc.trim()) return { hours: 2, items: [], method: 'default' };
+
+  const text = desc.toLowerCase();
+  const items = [];
+  let totalHours = 0;
+  const used = new Set();
+
+  for (const [pattern, hours, label] of ITEM_PATTERNS) {
+    const matches = text.match(pattern);
+    if (!matches) continue;
+
+    for (const m of matches) {
+      const pos = text.indexOf(m);
+      // Avoid double-counting the same text region
+      let skip = false;
+      for (const u of used) {
+        if (Math.abs(pos - u) < m.length + 5) { skip = true; break; }
+      }
+      if (skip) continue;
+      used.add(pos);
+
+      // Look for a quantity prefix like "2 sliding" or "3 x window"
+      const before = desc.substring(Math.max(0, pos - 15), pos);
+      const qtyMatch = before.match(/(\d+)\s*(?:x\s*)?$/i);
+      const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
+
+      items.push({ label, qty, hours: hours * qty });
+      totalHours += hours * qty;
+    }
+  }
+
+  if (!items.length) return { hours: 2, items: [], method: 'default' };
+
+  // Add 30 min travel/setup buffer
+  totalHours += 0.5;
+
+  return { hours: Math.round(totalHours * 10) / 10, items, method: 'items' };
 }
 
 function sizeLabel(hours) {
-  if (hours >= 7) return 'Full day';
-  if (hours >= 4) return 'Half day';
-  return '~2hrs';
+  if (hours >= 6) return 'Full day';
+  if (hours >= 3) return 'Half day';
+  return 'Quick';
 }
 
-const DAY_CAPACITY = 8; // hours
+const DAY_CAPACITY = 8;
 
-// Nearest-neighbour route from home base
 function routeOrder(jobs) {
   if (jobs.length <= 1) return jobs;
   const ordered = [];
@@ -61,7 +112,6 @@ function getFutureWorkdays(numWeeks) {
   const days = [];
   const d = new Date();
   d.setHours(0, 0, 0, 0);
-  // Start from tomorrow if today is already a workday
   d.setDate(d.getDate() + 1);
   const end = new Date(d);
   end.setDate(end.getDate() + numWeeks * 7);
@@ -85,32 +135,32 @@ export function buildSchedule(jobs) {
   const candidates = eligible.map((j) => {
     const payDate =
       j.payment_date && !j.payment_date.startsWith('0000') ? j.payment_date : null;
-    const amount = parseFloat(j.total_invoice_amount || 0);
+    const est = estimateFromDescription(j.job_description);
 
     return {
       uuid: j.uuid,
       jobId: j.generated_job_id,
       client: j.company_name || 'Unknown',
       address: j.job_address || '',
+      description: j.job_description || '',
       lat: parseFloat(j.lat),
       lng: parseFloat(j.lng),
-      amount,
-      hours: estimateHours(amount),
+      amount: parseFloat(j.total_invoice_amount || 0),
+      hours: est.hours,
+      items: est.items,
+      estMethod: est.method,
       queue: j.queue_name || '',
       hasDeposit: !!payDate,
       hasSuffix: /[A-Za-z]$/.test(j.generated_job_id),
-      distFromHome: distanceKm(HOME_LAT, HOME_LNG, parseFloat(j.lat), parseFloat(j.lng)),
     };
   });
 
-  // Priority: deposit paid first, then oldest WO date
   candidates.sort((a, b) => {
     if (a.hasDeposit !== b.hasDeposit) return a.hasDeposit ? -1 : 1;
     return 0;
   });
 
   const workdays = getFutureWorkdays(5);
-  // Track hours used per day
   const dayHours = new Map();
   const dayJobs = new Map();
   for (const d of workdays) {
@@ -119,7 +169,6 @@ export function buildSchedule(jobs) {
     dayJobs.set(s, []);
   }
 
-  // Assign jobs to days respecting capacity
   for (const cand of candidates) {
     let bestDay = null;
     let bestScore = Infinity;
@@ -128,14 +177,11 @@ export function buildSchedule(jobs) {
       if (usedHours + cand.hours > DAY_CAPACITY) continue;
 
       const existing = dayJobs.get(dayStr);
-
       if (existing.length === 0) {
-        // Empty day — use day index as tiebreaker (fill earlier days first)
         const dayIdx = [...dayHours.keys()].indexOf(dayStr);
         const score = 1000 + dayIdx;
         if (score < bestScore) { bestScore = score; bestDay = dayStr; }
       } else {
-        // Proximity to existing jobs on this day
         const avgDist = existing.reduce(
           (sum, e) => sum + distanceKm(cand.lat, cand.lng, e.lat, e.lng), 0
         ) / existing.length;
@@ -149,7 +195,6 @@ export function buildSchedule(jobs) {
     }
   }
 
-  // Route each day's jobs using nearest-neighbour from home
   const scheduled = [];
   for (const [dayStr, jobs] of dayJobs) {
     if (!jobs.length) continue;
@@ -164,6 +209,8 @@ export function buildSchedule(jobs) {
         amount: cand.amount,
         hours: cand.hours,
         sizeLabel: sizeLabel(cand.hours),
+        items: cand.items,
+        estMethod: cand.estMethod,
         queue: cand.queue,
         installDate: dayStr,
         sequence: idx + 1,
@@ -171,7 +218,6 @@ export function buildSchedule(jobs) {
         dayHoursUsed: dayHours.get(dayStr),
         hasDeposit: cand.hasDeposit,
         hasSuffix: cand.hasSuffix,
-        distFromHome: Math.round(cand.distFromHome),
         nearby: routed.length > 1
           ? routed
               .filter((_, i) => i !== idx)
@@ -185,7 +231,6 @@ export function buildSchedule(jobs) {
     });
   }
 
-  // Build 5-week calendar
   const weeks = [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -212,7 +257,7 @@ export function buildSchedule(jobs) {
         month: day.toLocaleDateString('en-AU', { month: 'short' }),
         isWorkday: dayNum >= 2 && dayNum <= 5,
         jobs: dJobs,
-        hoursUsed,
+        hoursUsed: Math.round(hoursUsed * 10) / 10,
         capacity: DAY_CAPACITY,
       });
     }
