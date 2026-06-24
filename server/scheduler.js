@@ -1,4 +1,3 @@
-// Scarborough QLD home base
 const HOME_LAT = -27.2036;
 const HOME_LNG = 153.1056;
 
@@ -14,13 +13,16 @@ function distanceKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// Estimate drive time: ~1.5 min per km (avg suburban speed ~40km/h)
+function travelHours(km) {
+  return Math.round((km / 40) * 10) / 10;
+}
+
 function isWorkday(date) {
   const day = date.getDay();
   return day >= 2 && day <= 5;
 }
 
-// --- Item-based duration estimation ---
-// Each pattern: [regex, hours per item, label]
 const ITEM_PATTERNS = [
   [/pivot\s*door/gi, 2.5, 'Pivot Door'],
   [/french\s*door/gi, 2.25, 'French Door'],
@@ -38,8 +40,14 @@ const ITEM_PATTERNS = [
   [/screen/gi, 0.3, 'Screen'],
 ];
 
-function estimateFromDescription(desc) {
-  if (!desc || !desc.trim()) return { hours: 2, items: [], method: 'default' };
+function estimateFromDescription(desc, amount) {
+  if (!desc || !desc.trim()) {
+    // Fallback to amount-based estimate
+    if (amount >= 5000) return { hours: 14, items: [{ label: 'Large job (est.)', qty: 1, hours: 14 }], method: 'amount' };
+    if (amount >= 2500) return { hours: 7, items: [{ label: 'Medium job (est.)', qty: 1, hours: 7 }], method: 'amount' };
+    if (amount >= 800) return { hours: 4, items: [{ label: 'Standard job (est.)', qty: 1, hours: 4 }], method: 'amount' };
+    return { hours: 2, items: [], method: 'default' };
+  }
 
   const text = desc.toLowerCase();
   const items = [];
@@ -52,7 +60,6 @@ function estimateFromDescription(desc) {
 
     for (const m of matches) {
       const pos = text.indexOf(m);
-      // Avoid double-counting the same text region
       let skip = false;
       for (const u of used) {
         if (Math.abs(pos - u) < m.length + 5) { skip = true; break; }
@@ -60,25 +67,29 @@ function estimateFromDescription(desc) {
       if (skip) continue;
       used.add(pos);
 
-      // Look for a quantity prefix like "2 sliding" or "3 x window"
       const before = desc.substring(Math.max(0, pos - 15), pos);
       const qtyMatch = before.match(/(\d+)\s*(?:x\s*)?$/i);
       const qty = qtyMatch ? parseInt(qtyMatch[1]) : 1;
 
-      items.push({ label, qty, hours: hours * qty });
+      items.push({ label, qty, hours: Math.round(hours * qty * 10) / 10 });
       totalHours += hours * qty;
     }
   }
 
-  if (!items.length) return { hours: 2, items: [], method: 'default' };
+  if (!items.length) {
+    if (amount >= 5000) return { hours: 14, items: [{ label: 'Large job (est.)', qty: 1, hours: 14 }], method: 'amount' };
+    if (amount >= 2500) return { hours: 7, items: [{ label: 'Medium job (est.)', qty: 1, hours: 7 }], method: 'amount' };
+    return { hours: 2, items: [], method: 'default' };
+  }
 
-  // Add 30 min travel/setup buffer
+  // Setup/cleanup buffer per job
   totalHours += 0.5;
 
   return { hours: Math.round(totalHours * 10) / 10, items, method: 'items' };
 }
 
 function sizeLabel(hours) {
+  if (hours >= 12) return 'Multi-day';
   if (hours >= 6) return 'Full day';
   if (hours >= 3) return 'Half day';
   return 'Quick';
@@ -108,6 +119,20 @@ function routeOrder(jobs) {
   return ordered;
 }
 
+// Calculate travel time for a routed list of jobs (from home, between jobs)
+function addTravelTime(routed) {
+  let prevLat = HOME_LAT;
+  let prevLng = HOME_LNG;
+
+  for (const job of routed) {
+    const km = distanceKm(prevLat, prevLng, job.lat, job.lng);
+    job.travelKm = Math.round(km);
+    job.travelHours = travelHours(km);
+    prevLat = job.lat;
+    prevLng = job.lng;
+  }
+}
+
 function getFutureWorkdays(numWeeks) {
   const days = [];
   const d = new Date();
@@ -133,8 +158,10 @@ export function buildSchedule(jobs) {
   if (!eligible.length) return { scheduled: [], weeks: [], totalEligible: 0 };
 
   const candidates = eligible.map((j) => {
-    const est = estimateFromDescription(j.job_description);
     const hasSuffix = /[A-Za-z]$/.test(j.generated_job_id);
+    const hasPayment = j.payment_date && !j.payment_date.startsWith('0000');
+    const amount = parseFloat(j.total_invoice_amount || 0);
+    const est = estimateFromDescription(j.job_description, amount);
 
     return {
       uuid: j.uuid,
@@ -144,19 +171,20 @@ export function buildSchedule(jobs) {
       description: j.job_description || '',
       lat: parseFloat(j.lat),
       lng: parseFloat(j.lng),
-      amount: parseFloat(j.total_invoice_amount || 0),
+      amount,
       hours: est.hours,
       items: est.items,
       estMethod: est.method,
       queue: j.queue_name || '',
-      hasDeposit: hasSuffix,
+      hasDeposit: hasSuffix || hasPayment,
       hasSuffix,
     };
   });
 
+  // Deposit first, then by hours descending (big jobs get priority for space)
   candidates.sort((a, b) => {
     if (a.hasDeposit !== b.hasDeposit) return a.hasDeposit ? -1 : 1;
-    return 0;
+    return b.hours - a.hours;
   });
 
   const workdays = getFutureWorkdays(5);
@@ -169,35 +197,82 @@ export function buildSchedule(jobs) {
   }
 
   for (const cand of candidates) {
-    let bestDay = null;
-    let bestScore = Infinity;
+    // Multi-day jobs: split across consecutive workdays
+    let remaining = cand.hours;
+    const dayKeys = [...dayHours.keys()];
+    let assigned = false;
 
-    for (const [dayStr, usedHours] of dayHours) {
-      if (usedHours + cand.hours > DAY_CAPACITY) continue;
-
-      const existing = dayJobs.get(dayStr);
-      if (existing.length === 0) {
-        const dayIdx = [...dayHours.keys()].indexOf(dayStr);
-        const score = 1000 + dayIdx;
-        if (score < bestScore) { bestScore = score; bestDay = dayStr; }
-      } else {
-        const avgDist = existing.reduce(
-          (sum, e) => sum + distanceKm(cand.lat, cand.lng, e.lat, e.lng), 0
-        ) / existing.length;
-        if (avgDist < bestScore) { bestScore = avgDist; bestDay = dayStr; }
+    if (remaining > DAY_CAPACITY) {
+      // Find consecutive workdays with enough total capacity
+      for (let i = 0; i < dayKeys.length; i++) {
+        let totalAvail = 0;
+        let span = 0;
+        for (let j = i; j < dayKeys.length && totalAvail < remaining; j++) {
+          const avail = DAY_CAPACITY - dayHours.get(dayKeys[j]);
+          if (avail <= 0) break;
+          totalAvail += avail;
+          span++;
+        }
+        if (totalAvail >= remaining) {
+          for (let j = i; j < i + span && remaining > 0; j++) {
+            const avail = DAY_CAPACITY - dayHours.get(dayKeys[j]);
+            const use = Math.min(avail, remaining);
+            const part = { ...cand, hours: use, multiDay: true, dayPart: `Day ${j - i + 1} of ${span}` };
+            dayJobs.get(dayKeys[j]).push(part);
+            dayHours.set(dayKeys[j], dayHours.get(dayKeys[j]) + use);
+            remaining -= use;
+          }
+          assigned = true;
+          break;
+        }
       }
     }
 
-    if (bestDay) {
-      dayJobs.get(bestDay).push(cand);
-      dayHours.set(bestDay, dayHours.get(bestDay) + cand.hours);
+    if (!assigned) {
+      // Single-day assignment with proximity clustering
+      let bestDay = null;
+      let bestScore = Infinity;
+
+      for (const [dayStr, usedHours] of dayHours) {
+        const existing = dayJobs.get(dayStr);
+        // Check capacity including estimated travel
+        const travelEst = existing.length > 0
+          ? travelHours(distanceKm(cand.lat, cand.lng,
+              existing[existing.length - 1].lat, existing[existing.length - 1].lng))
+          : travelHours(distanceKm(HOME_LAT, HOME_LNG, cand.lat, cand.lng));
+
+        if (usedHours + cand.hours + travelEst > DAY_CAPACITY) continue;
+
+        if (existing.length === 0) {
+          const dayIdx = [...dayHours.keys()].indexOf(dayStr);
+          const score = 1000 + dayIdx;
+          if (score < bestScore) { bestScore = score; bestDay = dayStr; }
+        } else {
+          const avgDist = existing.reduce(
+            (sum, e) => sum + distanceKm(cand.lat, cand.lng, e.lat, e.lng), 0
+          ) / existing.length;
+          if (avgDist < bestScore) { bestScore = avgDist; bestDay = dayStr; }
+        }
+      }
+
+      if (bestDay) {
+        dayJobs.get(bestDay).push(cand);
+        const travelEst = dayJobs.get(bestDay).length > 1
+          ? travelHours(distanceKm(cand.lat, cand.lng,
+              dayJobs.get(bestDay)[dayJobs.get(bestDay).length - 2].lat,
+              dayJobs.get(bestDay)[dayJobs.get(bestDay).length - 2].lng))
+          : travelHours(distanceKm(HOME_LAT, HOME_LNG, cand.lat, cand.lng));
+        dayHours.set(bestDay, dayHours.get(bestDay) + cand.hours + travelEst);
+      }
     }
   }
 
+  // Route each day and calculate travel
   const scheduled = [];
   for (const [dayStr, jobs] of dayJobs) {
     if (!jobs.length) continue;
     const routed = routeOrder(jobs);
+    addTravelTime(routed);
 
     routed.forEach((cand, idx) => {
       scheduled.push({
@@ -214,9 +289,13 @@ export function buildSchedule(jobs) {
         installDate: dayStr,
         sequence: idx + 1,
         totalOnDay: routed.length,
-        dayHoursUsed: dayHours.get(dayStr),
+        dayHoursUsed: Math.round(dayHours.get(dayStr) * 10) / 10,
         hasDeposit: cand.hasDeposit,
         hasSuffix: cand.hasSuffix,
+        travelKm: cand.travelKm || 0,
+        travelMins: Math.round((cand.travelHours || 0) * 60),
+        multiDay: cand.multiDay || false,
+        dayPart: cand.dayPart || null,
         nearby: routed.length > 1
           ? routed
               .filter((_, i) => i !== idx)
@@ -230,6 +309,7 @@ export function buildSchedule(jobs) {
     });
   }
 
+  // Build 5-week calendar
   const weeks = [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -247,7 +327,7 @@ export function buildSchedule(jobs) {
       const dayStr = day.toISOString().slice(0, 10);
       const dayNum = day.getDay();
       const dJobs = scheduled.filter((s) => s.installDate === dayStr);
-      const hoursUsed = dJobs.reduce((sum, j) => sum + j.hours, 0);
+      const hoursUsed = dJobs.length ? Math.round(dayHours.get(dayStr) * 10) / 10 : 0;
 
       days.push({
         date: dayStr,
@@ -256,7 +336,7 @@ export function buildSchedule(jobs) {
         month: day.toLocaleDateString('en-AU', { month: 'short' }),
         isWorkday: dayNum >= 2 && dayNum <= 5,
         jobs: dJobs,
-        hoursUsed: Math.round(hoursUsed * 10) / 10,
+        hoursUsed,
         capacity: DAY_CAPACITY,
       });
     }

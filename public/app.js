@@ -512,6 +512,8 @@ function renderSchedule(data) {
           const sizeTag = `<span class="cal-tag cal-tag-size">${esc(job.sizeLabel)}</span>`;
 
           html += `<div class="cal-job" onclick='openModal("${job.uuid}")'>`;
+          if (job.travelMins > 0) html += `<div class="cal-job-travel">🚐 ${job.travelKm}km · ${job.travelMins}min drive</div>`;
+          if (job.multiDay) html += `<div class="cal-job-multiday">${esc(job.dayPart)}</div>`;
           html += `<div class="cal-job-head"><span class="cal-job-seq">#${job.sequence}</span><span class="cal-job-id">${esc(job.jobId)}</span></div>`;
           html += `<div class="cal-job-client">${esc(job.client)}</div>`;
           html += `<div class="cal-job-addr">${esc(job.address)}</div>`;
