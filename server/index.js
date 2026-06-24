@@ -21,12 +21,12 @@ import { createCache } from './cache.js';
 import { buildSchedule } from './scheduler.js';
 import { readFileSync as readF, writeFileSync as writeF } from 'fs';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
 const overridesPath = join(__dirname, '..', 'schedule-overrides.json');
 let scheduleOverrides = {};
 try { scheduleOverrides = JSON.parse(readF(overridesPath, 'utf-8')); } catch {}
 function saveOverrides() { writeF(overridesPath, JSON.stringify(scheduleOverrides), 'utf-8'); }
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3001;
 
