@@ -51,7 +51,8 @@ const SKIP_PATTERNS = [
   /build-out/i, /accessori/i, /remote/i, /hub/i, /motor/i, /sensor/i,
   /ballast/i, /cassett/i, /cassette/i, /bolt\s*lock/i, /stop\s*bead/i, /jamb/i,
   /pet\s*door/i, /door\s*closer/i, /yale/i, /pricing\s*valid/i,
-  /louver/i, /support\s*post/i, /track/i, /handle/i, /pelmet/i,
+  /louver/i, /support\s*post/i, /track/i, /handle/i, /^fabric.*pelmet/i, /^pelmet\b/i,
+  /^\*\*/i, /^price\s*based/i, /^ground\s*floor/i,
 ];
 
 function deduplicateMaterials(materials) {
@@ -103,6 +104,7 @@ function estimateFromMaterials(materials) {
 
 // Find the deposit/suffix date from the "Partial invoice #XXXXA" line item
 function findDepositDate(materials) {
+  if (!materials) return null;
   for (const m of materials) {
     if (/^partial\s*invoice\s*#/i.test(m.name) && /[A-Za-z]$/i.test(m.name)) {
       if (m.edit_date && !m.edit_date.startsWith('0000')) {
@@ -157,20 +159,69 @@ function addTravelTime(routed) {
 }
 
 export function buildSchedule(jobs, overrides = {}) {
-  const eligible = jobs.filter((j) => {
-    if (j.status !== 'Work Order') return false;
-    if (!j.generated_job_id || j.generated_job_id === 'SAMPLE') return false;
-    if (!j.lat || !j.lng) return false;
-    // Deposit confirmed = partial invoice with letter suffix in materials, or payment_date set
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Find SM8-booked jobs (future bookings from dispatch board)
+  const bookedJobs = [];
+  const bookedUuids = new Set();
+  for (const j of jobs) {
+    if (j.status !== 'Work Order') continue;
+    if (!j.generated_job_id || j.generated_job_id === 'SAMPLE') continue;
+    const stamp = j.job_is_scheduled_until_stamp;
+    if (!stamp || stamp.startsWith('0000')) continue;
+    const bookedDate = new Date(stamp);
+    if (isNaN(bookedDate.getTime())) continue;
+    bookedDate.setHours(0, 0, 0, 0);
+    if (bookedDate < today) continue;
+
+    const est = estimateFromMaterials(j.materials);
     const hasPartialInvoice = (j.materials || []).some(
       m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
     );
     const hasPayment = j.payment_date && !j.payment_date.startsWith('0000');
-    if (!hasPartialInvoice && !hasPayment) return false;
-    return true;
+
+    bookedJobs.push({
+      uuid: j.uuid,
+      jobId: j.generated_job_id,
+      client: j.company_name || 'Unknown',
+      address: j.job_address || '',
+      lat: parseFloat(j.lat || 0),
+      lng: parseFloat(j.lng || 0),
+      amount: parseFloat(j.total_invoice_amount || 0),
+      hours: est.hours,
+      items: est.items,
+      estMethod: est.method,
+      queue: j.queue_name || '',
+      hasDeposit: hasPartialInvoice || hasPayment,
+      hasSuffix: hasPartialInvoice,
+      depositDate: findDepositDate(j.materials),
+      booked: true,
+      bookedDate: bookedDate.toISOString().slice(0, 10),
+    });
+    bookedUuids.add(j.uuid);
+  }
+
+  // All deposit-confirmed WOs not already booked
+  const allDeposit = jobs.filter((j) => {
+    if (bookedUuids.has(j.uuid)) return false;
+    if (j.status !== 'Work Order') return false;
+    if (!j.generated_job_id || j.generated_job_id === 'SAMPLE') return false;
+    if (!j.lat || !j.lng) return false;
+    const hasPartialInvoice = (j.materials || []).some(
+      m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
+    );
+    const hasPayment = j.payment_date && !j.payment_date.startsWith('0000');
+    return hasPartialInvoice || hasPayment;
   });
 
-  if (!eligible.length) return { scheduled: [], weeks: [], totalEligible: 0 };
+  // All deposit-confirmed WOs are eligible for auto-scheduling.
+  // Order form date controls the preferred scheduling window (18-25 days after order);
+  // jobs with no order form or a recent order form fall back to next available slot.
+  const eligible = allDeposit;
+  const sidebarJobs = [];
+
+  if (!eligible.length && !bookedJobs.length && !sidebarJobs.length) return { scheduled: [], unscheduled: [], weeks: [], totalEligible: 0 };
 
   const candidates = eligible.map((j) => {
     const hasPartialInvoice = (j.materials || []).some(
@@ -197,6 +248,8 @@ export function buildSchedule(jobs, overrides = {}) {
       hasDeposit: hasSuffix || hasPayment,
       hasSuffix,
       depositDate,
+      orderFormDate: j.order_form_sent_date ? new Date(j.order_form_sent_date) : null,
+      booked: false,
     };
   });
 
@@ -216,11 +269,11 @@ export function buildSchedule(jobs, overrides = {}) {
     return b.hours - a.hours;
   });
 
-  // Calculate the scheduling range — 5 weeks from today
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const unscheduled = [];
+
+  // Calculate the scheduling range — 8 weeks from today
   const scheduleEnd = new Date(today);
-  scheduleEnd.setDate(scheduleEnd.getDate() + 35);
+  scheduleEnd.setDate(scheduleEnd.getDate() + 56);
 
   const dayHours = new Map();
   const dayJobs = new Map();
@@ -234,6 +287,17 @@ export function buildSchedule(jobs, overrides = {}) {
       dayJobs.set(s, []);
     }
     d.setDate(d.getDate() + 1);
+  }
+
+  // Place SM8-booked jobs first (confirmed bookings from dispatch board)
+  for (const bj of bookedJobs) {
+    const dayStr = bj.bookedDate;
+    if (!dayHours.has(dayStr)) {
+      dayHours.set(dayStr, 0);
+      dayJobs.set(dayStr, []);
+    }
+    dayJobs.get(dayStr).push(bj);
+    dayHours.set(dayStr, dayHours.get(dayStr) + bj.hours);
   }
 
   // Place pinned jobs first
@@ -251,19 +315,18 @@ export function buildSchedule(jobs, overrides = {}) {
   for (const cand of unpinned) {
     // Determine which days this job can be scheduled
     let allowedDays;
-    if (cand.depositDate) {
-      // 20-25 days after deposit
-      const winStart = new Date(cand.depositDate);
-      winStart.setDate(winStart.getDate() + 20);
-      const winEnd = new Date(cand.depositDate);
+    if (cand.orderFormDate) {
+      // Schedule from 18-25 days after order form sent (2.5-3.5 week ready window)
+      const winStart = new Date(cand.orderFormDate);
+      winStart.setDate(winStart.getDate() + 18);
+      const winEnd = new Date(cand.orderFormDate);
       winEnd.setDate(winEnd.getDate() + 25);
       allowedDays = getWorkdays(winStart, winEnd).map(d => d.toISOString().slice(0, 10));
-      // If window is entirely in the past or no workdays, expand to any future day
+      // If window is entirely in the past or no workdays with capacity, expand to any future day
       const futureDays = allowedDays.filter(d => dayHours.has(d));
       if (!futureDays.length) allowedDays = [...dayHours.keys()];
       else allowedDays = futureDays;
     } else {
-      // No deposit date — any future workday
       allowedDays = [...dayHours.keys()];
     }
 
@@ -273,9 +336,7 @@ export function buildSchedule(jobs, overrides = {}) {
     // Multi-day jobs
     if (remaining > DAY_CAPACITY) {
       let assigned = false;
-      const allowed = new Set(allowedDays);
       for (let i = 0; i < dayKeys.length; i++) {
-        if (!allowed.has(dayKeys[i]) && allowed.size < dayKeys.length) continue;
         let totalAvail = 0;
         let span = 0;
         for (let j = i; j < dayKeys.length && totalAvail < remaining; j++) {
@@ -298,7 +359,8 @@ export function buildSchedule(jobs, overrides = {}) {
           break;
         }
       }
-      if (assigned) continue;
+      if (!assigned) unscheduled.push(cand);
+      continue;
     }
 
     // Single-day with proximity clustering — only within allowed days
@@ -327,6 +389,21 @@ export function buildSchedule(jobs, overrides = {}) {
       }
     }
 
+    // Fallback: search ALL future days if allowed window had no capacity
+    if (!bestDay) {
+      for (const dayStr of dayKeys) {
+        if (allowedDays.includes(dayStr)) continue;
+        const usedHours = dayHours.get(dayStr);
+        const existing = dayJobs.get(dayStr);
+        const travelEst = existing.length > 0
+          ? travelHours(distanceKm(cand.lat, cand.lng, existing[existing.length - 1].lat, existing[existing.length - 1].lng))
+          : travelHours(distanceKm(HOME_LAT, HOME_LNG, cand.lat, cand.lng));
+        if (usedHours + cand.hours + travelEst > DAY_CAPACITY) continue;
+        bestDay = dayStr;
+        break;
+      }
+    }
+
     if (bestDay) {
       const existing = dayJobs.get(bestDay);
       const travelEst = existing.length > 0
@@ -334,6 +411,8 @@ export function buildSchedule(jobs, overrides = {}) {
         : travelHours(distanceKm(HOME_LAT, HOME_LNG, cand.lat, cand.lng));
       dayJobs.get(bestDay).push(cand);
       dayHours.set(bestDay, dayHours.get(bestDay) + cand.hours + travelEst);
+    } else {
+      unscheduled.push(cand);
     }
   }
 
@@ -360,6 +439,7 @@ export function buildSchedule(jobs, overrides = {}) {
         sequence: idx + 1,
         totalOnDay: routed.length,
         dayHoursUsed: Math.round(dayHours.get(dayStr) * 10) / 10,
+        booked: cand.booked || false,
         hasDeposit: cand.hasDeposit,
         hasSuffix: cand.hasSuffix,
         depositDate: cand.depositDate ? cand.depositDate.toISOString().slice(0, 10) : null,
@@ -385,7 +465,7 @@ export function buildSchedule(jobs, overrides = {}) {
   const start = new Date(today);
   start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
 
-  for (let w = 0; w < 5; w++) {
+  for (let w = 0; w < 8; w++) {
     const weekStart = new Date(start);
     weekStart.setDate(weekStart.getDate() + w * 7);
     const days = [];
@@ -416,5 +496,38 @@ export function buildSchedule(jobs, overrides = {}) {
     weeks.push({ label: `Week of ${label}`, days });
   }
 
-  return { scheduled, weeks, totalEligible: eligible.length };
+  // Handle sidebar jobs: pinned ones go on calendar, rest go to unscheduled
+  for (const j of sidebarJobs) {
+    const ov = overrides[j.uuid];
+    if (ov?.removed) continue;
+    const est = estimateFromMaterials(j.materials);
+    const hasPartialInvoice = (j.materials || []).some(
+      m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
+    );
+    const hasPayment = j.payment_date && !j.payment_date.startsWith('0000');
+
+    if (ov?.installDate) {
+      // Manually placed on calendar via drag — add to the day
+      const dayStr = ov.installDate;
+      if (!dayHours.has(dayStr)) { dayHours.set(dayStr, 0); dayJobs.set(dayStr, []); }
+      const cand = {
+        uuid: j.uuid, jobId: j.generated_job_id, client: j.company_name || 'Unknown',
+        address: j.job_address || '', lat: parseFloat(j.lat || 0), lng: parseFloat(j.lng || 0),
+        amount: parseFloat(j.total_invoice_amount || 0), hours: est.hours, items: est.items,
+        estMethod: est.method, queue: j.queue_name || '', hasDeposit: hasPartialInvoice || hasPayment,
+        hasSuffix: hasPartialInvoice, depositDate: findDepositDate(j.materials), booked: false,
+      };
+      dayJobs.get(dayStr).push(cand);
+      dayHours.set(dayStr, dayHours.get(dayStr) + cand.hours);
+      continue;
+    }
+
+    const orderSent = j.order_form_sent_date ? Math.floor((today - new Date(j.order_form_sent_date)) / (1000 * 60 * 60 * 24)) : null;
+    unscheduled.push({
+      uuid: j.uuid, jobId: j.generated_job_id, client: j.company_name || 'Unknown',
+      hours: est.hours, items: est.items, hasDeposit: hasPartialInvoice || hasPayment, orderDaysAgo: orderSent,
+    });
+  }
+
+  return { scheduled, unscheduled, weeks, totalEligible: eligible.length };
 }
