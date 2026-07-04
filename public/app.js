@@ -49,7 +49,7 @@ const STALE_DAYS = 7;
 
 let allJobs = [];
 let queues = [];
-let currentView = 'production';
+let currentView = 'schedule';
 let statusFilter = 'Work Order';
 let toastTimer = null;
 
@@ -64,7 +64,7 @@ async function init() {
     allJobs = j;
     document.getElementById('loading').classList.add('hidden');
     document.getElementById('board').classList.remove('hidden');
-    renderBoard();
+    setView('schedule');
     connectSSE();
   } catch (err) {
     console.error('Init error:', err);
