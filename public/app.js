@@ -82,8 +82,7 @@ function setView(view) {
   if (view === 'schedule') {
     document.getElementById('board').classList.add('hidden');
     document.getElementById('schedule-view').classList.remove('hidden');
-    if (scheduleTab === 'scheduler') loadScheduler();
-    else loadSchedule();
+    setScheduleTab(scheduleTab);
   } else {
     document.getElementById('board').classList.remove('hidden');
     document.getElementById('schedule-view').classList.add('hidden');
