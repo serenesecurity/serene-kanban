@@ -188,7 +188,7 @@ export function buildSchedule(jobs, overrides = {}) {
       address: j.job_address || '',
       lat: parseFloat(j.lat || 0),
       lng: parseFloat(j.lng || 0),
-      amount: parseFloat(j.total_invoice_amount || 0),
+      amount: parseFloat(j.total_invoice_amount_combined ?? j.total_invoice_amount ?? 0),
       hours: est.hours,
       items: est.items,
       estMethod: est.method,
@@ -513,7 +513,7 @@ export function buildSchedule(jobs, overrides = {}) {
       const cand = {
         uuid: j.uuid, jobId: j.generated_job_id, client: j.company_name || 'Unknown',
         address: j.job_address || '', lat: parseFloat(j.lat || 0), lng: parseFloat(j.lng || 0),
-        amount: parseFloat(j.total_invoice_amount || 0), hours: est.hours, items: est.items,
+        amount: parseFloat(j.total_invoice_amount_combined ?? j.total_invoice_amount ?? 0), hours: est.hours, items: est.items,
         estMethod: est.method, queue: j.queue_name || '', hasDeposit: hasPartialInvoice || hasPayment,
         hasSuffix: hasPartialInvoice, depositDate: findDepositDate(j.materials), booked: false,
       };
