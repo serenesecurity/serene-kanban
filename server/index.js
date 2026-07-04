@@ -23,7 +23,8 @@ import { readFileSync as readF, writeFileSync as writeF } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const overridesPath = join(__dirname, '..', 'schedule-overrides.json');
+const dataDir = process.env.DATA_DIR || join(__dirname, '..');
+const overridesPath = join(dataDir, 'schedule-overrides.json');
 let scheduleOverrides = {};
 try { scheduleOverrides = JSON.parse(readF(overridesPath, 'utf-8')); } catch {}
 function saveOverrides() { writeF(overridesPath, JSON.stringify(scheduleOverrides), 'utf-8'); }
@@ -36,7 +37,7 @@ app.use(express.json());
 
 const sse = createSSEManager();
 const sm8 = createServiceM8Client(process.env.SERVICEM8_API_KEY);
-const cache = createCache(join(__dirname, '..', 'kanban-cache.json'));
+const cache = createCache(join(dataDir, 'kanban-cache.json'));
 const sync = createSyncManager(sm8, cache, sse);
 
 // --- SSE endpoint ---
@@ -104,6 +105,61 @@ app.get('/api/schedule', (_req, res) => {
   res.json(buildSchedule(jobs, scheduleOverrides));
 });
 
+app.get('/api/scheduler', (_req, res) => {
+  const jobs = cache.getJobs();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // All WO jobs with deposits (same eligibility as calendar)
+  const items = jobs
+    .filter(j => {
+      if (j.status !== 'Work Order') return false;
+      if (!j.generated_job_id || j.generated_job_id === 'SAMPLE') return false;
+      const hasPartialInvoice = (j.materials || []).some(
+        m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
+      );
+      const hasPayment = j.payment_date && !j.payment_date.startsWith('0000');
+      return hasPartialInvoice || hasPayment;
+    })
+    .map(j => {
+      const hasOrderForm = !!j.order_form_sent_date;
+      const sentDate = hasOrderForm ? new Date(j.order_form_sent_date) : null;
+      const daysSinceSent = sentDate ? Math.floor((today - sentDate) / (1000 * 60 * 60 * 24)) : null;
+      // Ready window: 18-25 days (2.5-3.5 weeks)
+      const readyWindowStart = 18;
+      const readyWindowEnd = 25;
+      const hasBooking = j.job_is_scheduled_until_stamp && !j.job_is_scheduled_until_stamp.startsWith('0000');
+      const bookedDate = hasBooking ? j.job_is_scheduled_until_stamp.slice(0, 10) : null;
+      const todayStr = today.toISOString().slice(0, 10);
+      const isBooked = hasBooking && bookedDate >= todayStr && sentDate && new Date(bookedDate) >= sentDate;
+      const hasPartialInvoice = (j.materials || []).some(
+        m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
+      );
+      const hasPayment = j.payment_date && !j.payment_date.startsWith('0000');
+
+      return {
+        uuid: j.uuid,
+        jobId: j.generated_job_id,
+        client: j.company_name || 'Unknown',
+        address: j.job_address || '',
+        suburb: j.geo_city || '',
+        queue: j.queue_name || '',
+        hasOrderForm,
+        orderFormSentDate: sentDate ? j.order_form_sent_date.slice(0, 10) : null,
+        daysSinceSent,
+        readyWindowStart,
+        readyWindowEnd,
+        hasDeposit: hasPartialInvoice || hasPayment,
+        isBooked,
+        bookedDate,
+        amount: parseFloat(j.total_invoice_amount_combined ?? j.total_invoice_amount ?? 0),
+      };
+    })
+    .sort((a, b) => (b.daysSinceSent ?? -1) - (a.daysSinceSent ?? -1));
+
+  res.json({ items });
+});
+
 app.get('/api/schedule/overrides', (_req, res) => {
   res.json(scheduleOverrides);
 });
@@ -132,55 +188,60 @@ app.post('/api/schedule/:uuid/reschedule', (req, res) => {
   const jobs = cache.getJobs();
   const result = buildSchedule(jobs, scheduleOverrides);
 
-  // Find the best day near the target
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const target = new Date(today);
   target.setDate(target.getDate() + approxDays);
 
-  // Collect workdays in a ±4 day window around target
-  const windowStart = new Date(target);
-  windowStart.setDate(windowStart.getDate() - 4);
-  const windowEnd = new Date(target);
-  windowEnd.setDate(windowEnd.getDate() + 4);
-
-  const job = jobs.find(j => j.uuid === uuid);
   const jobHours = result.scheduled.find(s => s.uuid === uuid)?.hours || 4;
 
-  // Score each day: prefer less loaded days closer to target
-  let bestDay = null;
-  let bestScore = Infinity;
-
+  // Build a map of hours used per day from the schedule
+  const dayLoad = new Map();
   for (const week of result.weeks) {
     for (const day of week.days) {
-      if (!day.isWorkday) continue;
-      const dayDate = new Date(day.date + 'T00:00:00');
-      if (dayDate < windowStart || dayDate > windowEnd) continue;
-      if (dayDate <= today) continue;
-
-      const remainingCapacity = day.capacity - day.hoursUsed;
-      if (remainingCapacity < jobHours) continue;
-
-      const daysFromTarget = Math.abs(Math.round((dayDate - target) / (1000 * 60 * 60 * 24)));
-      const loadPenalty = day.hoursUsed * 0.5;
-      const score = daysFromTarget + loadPenalty;
-
-      if (score < bestScore) { bestScore = score; bestDay = day.date; }
+      if (day.isWorkday) dayLoad.set(day.date, day.hoursUsed);
     }
   }
 
-  // If nothing in window, find any future workday with capacity
+  // Search ±7 days around target, then expand to any future workday up to 90 days out
+  const windowStart = new Date(target);
+  windowStart.setDate(windowStart.getDate() - 7);
+  const windowEnd = new Date(target);
+  windowEnd.setDate(windowEnd.getDate() + 7);
+
+  let bestDay = null;
+  let bestScore = Infinity;
+
+  // Generate candidate workdays: today+1 through today+90
+  const scanEnd = new Date(today);
+  scanEnd.setDate(scanEnd.getDate() + 90);
+  const allWorkdays = [];
+  const cursor = new Date(today);
+  cursor.setDate(cursor.getDate() + 1);
+  while (cursor <= scanEnd) {
+    const dow = cursor.getDay();
+    if (dow >= 2 && dow <= 5) {
+      allWorkdays.push(cursor.toISOString().slice(0, 10));
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  // First pass: within ±7 day window
+  for (const dayStr of allWorkdays) {
+    const dayDate = new Date(dayStr + 'T00:00:00');
+    if (dayDate < windowStart || dayDate > windowEnd) continue;
+    const used = dayLoad.get(dayStr) || 0;
+    if (used + jobHours > 8) continue;
+    const daysFromTarget = Math.abs(Math.round((dayDate - target) / (1000 * 60 * 60 * 24)));
+    const score = daysFromTarget + used * 0.5;
+    if (score < bestScore) { bestScore = score; bestDay = dayStr; }
+  }
+
+  // Fallback: any future workday with capacity
   if (!bestDay) {
-    for (const week of result.weeks) {
-      for (const day of week.days) {
-        if (!day.isWorkday) continue;
-        const dayDate = new Date(day.date + 'T00:00:00');
-        if (dayDate <= today) continue;
-        if (day.capacity - day.hoursUsed < jobHours) continue;
-        bestDay = day.date;
-        break;
-      }
-      if (bestDay) break;
+    for (const dayStr of allWorkdays) {
+      const used = dayLoad.get(dayStr) || 0;
+      if (used + jobHours <= 8) { bestDay = dayStr; break; }
     }
   }
 
