@@ -82,7 +82,8 @@ function setView(view) {
   if (view === 'schedule') {
     document.getElementById('board').classList.add('hidden');
     document.getElementById('schedule-view').classList.remove('hidden');
-    loadSchedule();
+    if (scheduleTab === 'scheduler') loadScheduler();
+    else loadSchedule();
   } else {
     document.getElementById('board').classList.remove('hidden');
     document.getElementById('schedule-view').classList.add('hidden');
@@ -102,7 +103,7 @@ function setFilter(f) {
 }
 
 function getFilteredJobs() {
-  let jobs = allJobs.filter(j => !EXCLUDED_QUEUES.has(j.queue_name));
+  let jobs = allJobs.filter(j => !EXCLUDED_QUEUES.has(j.queue_name) && j.generated_job_id !== 'SAMPLE');
   if (statusFilter !== 'all') {
     jobs = jobs.filter(j => j.status === statusFilter);
   }
@@ -161,15 +162,14 @@ function isScheduled(job) {
 
 function getScheduleInfo(job) {
   if (!isScheduled(job)) return null;
-  const d = new Date(job.job_is_scheduled_until_stamp);
+  const stamp = job.job_is_scheduled_until_stamp;
+  const d = new Date(stamp);
   if (isNaN(d.getTime())) return null;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const diffDays = Math.ceil((d - now) / (1000 * 60 * 60 * 24));
-  if (diffDays < -3) return null;
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const bookStr = stamp.slice(0, 10);
+  if (bookStr < todayStr) return null;
   const text = d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short' });
-  if (diffDays >= 0) return { text, cls: 'booked-green' };
-  return { text, cls: 'booked-orange' };
+  return { text, cls: 'booked-green' };
 }
 
 function effectiveQueue(job) {
@@ -445,7 +445,12 @@ function connectSSE() {
     const { jobCount } = JSON.parse(e.data);
     const j = await fetch('/api/jobs').then(r => r.json());
     allJobs = j;
-    renderBoard();
+    if (currentView === 'schedule') {
+      if (scheduleTab === 'scheduler') loadScheduler();
+      else loadSchedule();
+    } else {
+      renderBoard();
+    }
     showToast(`Synced ${jobCount} jobs`);
   });
 }
@@ -481,7 +486,11 @@ function renderSchedule(data) {
     return;
   }
 
-  let html = '';
+  // Collect unscheduled jobs for sidebar
+  const unsched = data.unscheduled || [];
+
+  let html = '<div class="cal-layout">';
+  html += '<div class="cal-main">';
 
   for (const week of data.weeks) {
     const weekStart = new Date(week.days[0].date + 'T00:00:00');
@@ -497,7 +506,8 @@ function renderSchedule(data) {
       const isToday = new Date().toISOString().slice(0, 10) === day.date;
       const isPast = dayDate < new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00');
 
-      html += `<div class="cal-day ${isMonday ? 'cal-day-off' : ''} ${isToday ? 'cal-day-today' : ''} ${isPast ? 'cal-day-past' : ''}">`;
+      const canDrop = !isMonday && !isPast;
+      html += `<div class="cal-day ${isMonday ? 'cal-day-off' : ''} ${isToday ? 'cal-day-today' : ''} ${isPast ? 'cal-day-past' : ''}" data-cal-date="${day.date}" ${canDrop ? 'ondragover="onCalDragOver(event)" ondragleave="onCalDragLeave(event)" ondrop="onCalDrop(event)"' : ''}>`;
       html += `<div class="cal-day-head"><span class="cal-day-name">${day.dayName}</span><span class="cal-day-num">${day.dayNum} ${day.month}</span></div>`;
 
       if (isMonday) {
@@ -511,22 +521,29 @@ function renderSchedule(data) {
         html += `<div class="cal-capacity"><div class="cal-capacity-bar" style="width:${pct}%;background:${barColor}"></div><span class="cal-capacity-label">${day.hoursUsed}/${day.capacity}h</span></div>`;
 
         for (const job of day.jobs) {
-          const depositTag = job.hasDeposit ? '<span class="cal-tag cal-tag-paid">Deposit</span>' : '<span class="cal-tag cal-tag-pending">No deposit</span>';
-          const sizeTag = `<span class="cal-tag cal-tag-size">${esc(job.sizeLabel)}</span>`;
+          const jobClass = job.booked ? 'cal-job cal-job-booked' : 'cal-job cal-job-recommended';
+          const statusTag = job.booked
+            ? '<span class="cal-status-tag cal-status-booked">Scheduled</span>'
+            : '<span class="cal-status-tag cal-status-recommended">Not Yet Scheduled</span>';
 
-          html += `<div class="cal-job" data-uuid="${job.uuid}" data-date="${job.installDate}">`;
+          html += `<div class="${jobClass}" data-uuid="${job.uuid}" data-date="${job.installDate}" ${!job.booked ? 'draggable="true" ondragstart="onCalDragStart(event)" ondragend="onCalDragEnd(event)"' : ''}>`;
+
           if (job.travelMins > 0) html += `<div class="cal-job-travel">🚐 ${job.travelKm}km · ${job.travelMins}min</div>`;
           if (job.multiDay) html += `<div class="cal-job-multiday">${esc(job.dayPart)}</div>`;
+          html += statusTag;
+          html += `<div class="cal-job-id">${esc(job.jobId)}</div>`;
           html += `<div class="cal-job-client">${esc(job.client)}</div>`;
           html += `<div class="cal-job-desc">${summariseItems(job.items)}</div>`;
-          html += `<div class="cal-job-meta"><span>${esc(job.jobId)}</span><span>${job.hours}h</span>${job.hasDeposit ? '<span class="cal-paid">Paid</span>' : ''}</div>`;
-          html += `<div class="cal-job-actions">`;
-          html += `<button class="cal-act-btn" onclick="event.stopPropagation();moveScheduleJob('${job.uuid}','${job.installDate}')">Date</button>`;
-          html += `<button class="cal-act-btn cal-act-reschedule" onclick="event.stopPropagation();rescheduleJob('${job.uuid}', 7)">+1w</button>`;
-          html += `<button class="cal-act-btn cal-act-reschedule" onclick="event.stopPropagation();rescheduleJob('${job.uuid}', 14)">+2w</button>`;
-          html += `<button class="cal-act-btn cal-act-reschedule" onclick="event.stopPropagation();rescheduleJob('${job.uuid}', 21)">+3w</button>`;
-          html += `<button class="cal-act-btn cal-act-remove" onclick="event.stopPropagation();removeScheduleJob('${job.uuid}')">Remove</button>`;
-          html += `</div>`;
+          html += `<div class="cal-job-meta"><span>${parseFloat(job.hours.toFixed(1))}h</span>${job.hasDeposit ? '<span class="cal-paid">Paid</span>' : ''}</div>`;
+          if (!job.booked) {
+            html += `<div class="cal-job-actions">`;
+            html += `<button class="cal-act-btn" onclick="event.stopPropagation();moveScheduleJob('${job.uuid}','${job.installDate}')">Date</button>`;
+            html += `<button class="cal-act-btn cal-act-reschedule" onclick="event.stopPropagation();rescheduleJob('${job.uuid}', 7)">+1w</button>`;
+            html += `<button class="cal-act-btn cal-act-reschedule" onclick="event.stopPropagation();rescheduleJob('${job.uuid}', 14)">+2w</button>`;
+            html += `<button class="cal-act-btn cal-act-reschedule" onclick="event.stopPropagation();rescheduleJob('${job.uuid}', 21)">+3w</button>`;
+            html += `<button class="cal-act-btn cal-act-remove" onclick="event.stopPropagation();removeScheduleJob('${job.uuid}')">Remove</button>`;
+            html += `</div>`;
+          }
           html += `</div>`;
         }
       }
@@ -537,10 +554,35 @@ function renderSchedule(data) {
     html += `</div></div>`;
   }
 
+  // Close cal-main
+  html += `</div>`;
+
+  // Sidebar for unscheduled jobs
+  html += `<div class="cal-sidebar" ondragover="onCalDragOver(event)" ondragleave="onCalDragLeave(event)" ondrop="onCalDropSidebar(event)">`;
+  html += `<div class="cal-sidebar-header">Unscheduled <span class="cal-sidebar-count">${unsched.length}</span></div>`;
+  if (!unsched.length) {
+    html += `<div class="cal-sidebar-empty">All jobs scheduled</div>`;
+  } else {
+    for (const job of unsched) {
+      const orderInfo = job.orderDaysAgo != null ? `<div class="cal-sidebar-order">Ordered ${job.orderDaysAgo}d ago</div>` : '<div class="cal-sidebar-order">No order form</div>';
+      html += `<div class="cal-job cal-job-unscheduled" draggable="true" data-uuid="${job.uuid}" ondragstart="onCalDragStart(event)" ondragend="onCalDragEnd(event)">`;
+      html += `<div class="cal-job-id">${esc(job.jobId)}</div>`;
+      html += `<div class="cal-job-client">${esc(job.client)}</div>`;
+      html += orderInfo;
+      html += `<div class="cal-job-meta"><span>${parseFloat(job.hours.toFixed(1))}h</span>${job.hasDeposit ? '<span class="cal-paid">Paid</span>' : ''}</div>`;
+      html += `</div>`;
+    }
+  }
+  html += `</div>`;
+
+  // Close cal-layout
+  html += `</div>`;
+
   // Summary
   const totalJobs = data.scheduled.length;
-  const withDeposit = data.scheduled.filter(s => s.hasDeposit).length;
-  html += `<div class="cal-summary">${totalJobs} installations across ${data.weeks.length} weeks | ${withDeposit} deposit confirmed <button class="cal-reset-btn" onclick="resetSchedule()">Reset to recommended</button></div>`;
+  const bookedCount = data.scheduled.filter(s => s.booked).length;
+  const recommendedCount = totalJobs - bookedCount;
+  html += `<div class="cal-summary"><span class="cal-legend-booked"></span> ${bookedCount} Scheduled &nbsp; <span class="cal-legend-recommended"></span> ${recommendedCount} Not Yet Scheduled &nbsp; <span class="cal-legend-unsched"></span> ${unsched.length} Unscheduled <button class="cal-reset-btn" onclick="resetSchedule()">Reset to recommended</button></div>`;
 
   body.innerHTML = html;
 }
@@ -551,6 +593,7 @@ function summariseItems(items) {
   for (const i of items) {
     const short = i.label
       .replace(/IntrudaGuard|Premium|Panther Protect|316 Stainless Steel Mesh|Perforated Mesh|with Triple Locks|with Single Locks|Security/gi, '')
+      .replace(/\s*-\s*[\w/]+$/, '')
       .replace(/\s+/g, ' ').trim();
     const key = short || i.label;
     grouped.set(key, (grouped.get(key) || 0) + i.qty);
@@ -623,6 +666,199 @@ async function resetSchedule() {
     showToast('Schedule reset');
   } catch {
     showToast('Failed to reset', 'error');
+  }
+}
+
+// --- Schedule tab switching ---
+let scheduleTab = 'scheduler';
+
+function setScheduleTab(tab) {
+  scheduleTab = tab;
+  document.querySelectorAll('.sched-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.stab === tab);
+  });
+  if (tab === 'calendar') loadSchedule();
+  else loadScheduler();
+}
+
+// --- Scheduler view (Order Form Lead Times) ---
+async function loadScheduler() {
+  const body = document.getElementById('schedule-body');
+  body.innerHTML = '<p style="color:#64748b;text-align:center;padding:40px;">Loading scheduler...</p>';
+
+  try {
+    const res = await fetch('/api/scheduler');
+    const data = await res.json();
+    renderScheduler(data);
+  } catch {
+    body.innerHTML = '<p style="color:#ef4444;text-align:center;padding:40px;">Failed to load scheduler</p>';
+  }
+}
+
+function renderScheduler(data) {
+  const body = document.getElementById('schedule-body');
+  if (!data.items || !data.items.length) {
+    body.innerHTML = '<div class="schedule-empty">No eligible Work Orders found.</div>';
+    return;
+  }
+
+  // Assign status to each job
+  const rows = data.items.map(job => {
+    const winStart = job.readyWindowStart || 18;
+    const winEnd = job.readyWindowEnd || 25;
+    let status, statusCls;
+    if (job.isBooked) { status = 'Booked'; statusCls = 'st-booked'; }
+    else if (job.hasOrderForm && job.daysSinceSent >= winStart) { status = 'Ready'; statusCls = 'st-ready'; }
+    else if (job.hasOrderForm && job.daysSinceSent >= winStart - 4) { status = 'Coming Soon'; statusCls = 'st-soon'; }
+    else if (job.hasOrderForm) { status = 'Ordered'; statusCls = 'st-ordered'; }
+    else { status = 'Not Sent'; statusCls = 'st-nosend'; }
+    return { ...job, status, statusCls };
+  });
+
+  // Sort: Ready first, then Coming Soon, Ordered, Not Sent, Booked
+  const statusOrder = { 'Ready': 0, 'Coming Soon': 1, 'Ordered': 2, 'Not Sent': 3, 'Booked': 4 };
+  rows.sort((a, b) => statusOrder[a.status] - statusOrder[b.status] || (b.daysSinceSent ?? -1) - (a.daysSinceSent ?? -1));
+
+  // Count by status
+  const counts = {};
+  rows.forEach(r => { counts[r.status] = (counts[r.status] || 0) + 1; });
+
+  let html = '<div class="sched-summary">';
+  const badges = [
+    { label: 'Ready', cls: 'st-ready', count: counts['Ready'] || 0 },
+    { label: 'Coming Soon', cls: 'st-soon', count: counts['Coming Soon'] || 0 },
+    { label: 'Ordered', cls: 'st-ordered', count: counts['Ordered'] || 0 },
+    { label: 'Not Sent', cls: 'st-nosend', count: counts['Not Sent'] || 0 },
+    { label: 'Booked', cls: 'st-booked', count: counts['Booked'] || 0 },
+  ];
+  for (const b of badges) {
+    html += `<span class="sched-sum-badge ${b.cls}">${b.count} ${b.label}</span>`;
+  }
+  html += `<span class="sched-window-info">Ready window: 18-25 days (2.5-3.5 weeks) from order</span>`;
+  html += `</div>`;
+
+  html += `<div class="sched-table-wrap"><table class="sched-table">`;
+  html += `<thead><tr>
+    <th>Status</th>
+    <th>Job</th>
+    <th>Client</th>
+    <th>Suburb</th>
+    <th>Ordered</th>
+    <th>Days</th>
+    <th>Ready Window</th>
+    <th>Deposit</th>
+    <th class="sched-th-right">Job Total</th>
+  </tr></thead><tbody>`;
+
+  let lastStatus = '';
+  for (const r of rows) {
+    // Section divider row
+    if (r.status !== lastStatus) {
+      lastStatus = r.status;
+      html += `<tr class="sched-divider ${r.statusCls}-bg"><td colspan="9">${esc(r.status)}${r.status === 'Ready' ? ' — ready to book installation' : r.status === 'Coming Soon' ? ' — parts arriving soon' : r.status === 'Ordered' ? ' — recently placed' : r.status === 'Not Sent' ? ' — order form not yet sent' : ' — installation scheduled'}</td></tr>`;
+    }
+
+    const winStart = r.readyWindowStart || 18;
+    const winEnd = r.readyWindowEnd || 25;
+    const sentStr = r.orderFormSentDate ? new Date(r.orderFormSentDate + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : '';
+    let estReadyStr = '';
+    if (r.orderFormSentDate) {
+      const d1 = new Date(r.orderFormSentDate + 'T00:00:00');
+      const d2 = new Date(r.orderFormSentDate + 'T00:00:00');
+      d1.setDate(d1.getDate() + winStart);
+      d2.setDate(d2.getDate() + winEnd);
+      const fmt = d => d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+      estReadyStr = `${fmt(d1)} - ${fmt(d2)}`;
+    }
+    if (r.isBooked) {
+      estReadyStr = new Date(r.bookedDate + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) + ' ✓';
+    }
+
+    const daysStr = r.daysSinceSent != null ? `${r.daysSinceSent}d` : '';
+    const depositStr = r.hasDeposit ? '<span class="cal-paid">Paid</span>' : '<span class="sched-no-deposit">No</span>';
+    const amtStr = r.amount > 0 ? `$${r.amount.toLocaleString('en-AU', { minimumFractionDigits: 0 })}` : '';
+
+    // Progress bar: fills to winStart (ready), then past winEnd turns fully green
+    let progressBar = '';
+    if (r.hasOrderForm) {
+      const pct = Math.min(100, Math.round((r.daysSinceSent / winEnd) * 100));
+      const barColor = r.daysSinceSent >= winStart ? '#22c55e' : r.daysSinceSent >= winStart - 4 ? '#f59e0b' : '#38bdf8';
+      progressBar = `<div class="sched-mini-bar"><div style="width:${pct}%;background:${barColor}"></div></div>`;
+    }
+
+    html += `<tr class="sched-row">
+      <td><span class="sched-status-badge ${r.statusCls}">${esc(r.status)}</span></td>
+      <td class="sched-cell-id">${esc(r.jobId)}</td>
+      <td>${esc(r.client)}</td>
+      <td>${esc(r.suburb || '')}</td>
+      <td>${sentStr}</td>
+      <td>${daysStr}${progressBar}</td>
+      <td>${estReadyStr}</td>
+      <td>${depositStr}</td>
+      <td class="sched-cell-right">${amtStr}</td>
+    </tr>`;
+  }
+
+  html += `</tbody></table></div>`;
+  body.innerHTML = html;
+}
+
+// --- Schedule drag & drop ---
+let calDragUuid = null;
+
+function onCalDragStart(e) {
+  const card = e.currentTarget;
+  calDragUuid = card.dataset.uuid;
+  e.dataTransfer.effectAllowed = 'move';
+  card.classList.add('cal-dragging');
+}
+
+function onCalDragEnd(e) {
+  e.currentTarget.classList.remove('cal-dragging');
+  calDragUuid = null;
+  document.querySelectorAll('.cal-day-drop-over').forEach(el => el.classList.remove('cal-day-drop-over'));
+}
+
+function onCalDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('cal-day-drop-over');
+}
+
+function onCalDragLeave(e) {
+  e.currentTarget.classList.remove('cal-day-drop-over');
+}
+
+async function onCalDrop(e) {
+  e.preventDefault();
+  const dayEl = e.currentTarget;
+  dayEl.classList.remove('cal-day-drop-over');
+  const targetDate = dayEl.dataset.calDate;
+  if (!calDragUuid || !targetDate) return;
+
+  try {
+    await fetch(`/api/schedule/${calDragUuid}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ installDate: targetDate }),
+    });
+    loadSchedule();
+    const d = new Date(targetDate + 'T00:00:00');
+    showToast(`Moved to ${d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}`);
+  } catch {
+    showToast('Failed to move job', 'error');
+  }
+}
+
+async function onCalDropSidebar(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('cal-day-drop-over');
+  if (!calDragUuid) return;
+  try {
+    await fetch(`/api/schedule/${calDragUuid}`, { method: 'DELETE' });
+    loadSchedule();
+    showToast('Job moved to unscheduled');
+  } catch {
+    showToast('Failed to unschedule job', 'error');
   }
 }
 
