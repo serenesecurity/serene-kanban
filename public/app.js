@@ -79,13 +79,18 @@ function setView(view) {
     b.classList.toggle('active', b.dataset.view === view);
   });
 
+  document.getElementById('board').classList.add('hidden');
+  document.getElementById('schedule-view').classList.add('hidden');
+  document.getElementById('orders-view').classList.add('hidden');
+
   if (view === 'schedule') {
-    document.getElementById('board').classList.add('hidden');
     document.getElementById('schedule-view').classList.remove('hidden');
     setScheduleTab(scheduleTab);
+  } else if (view === 'orders') {
+    document.getElementById('orders-view').classList.remove('hidden');
+    loadOrders();
   } else {
     document.getElementById('board').classList.remove('hidden');
-    document.getElementById('schedule-view').classList.add('hidden');
     renderBoard();
   }
 }
@@ -701,8 +706,12 @@ function renderScheduler(data) {
     return;
   }
 
-  // Assign status to each job
-  const rows = data.items.map(job => {
+  // Split into deposit-confirmed and no-deposit
+  const depositItems = data.items.filter(j => j.hasDeposit);
+  const noDepositItems = data.items.filter(j => !j.hasDeposit);
+
+  // Assign status to each deposit-confirmed job
+  const rows = depositItems.map(job => {
     const winStart = job.readyWindowStart || 18;
     const winEnd = job.readyWindowEnd || 25;
     let status, statusCls;
@@ -729,6 +738,7 @@ function renderScheduler(data) {
     { label: 'Ordered', cls: 'st-ordered', count: counts['Ordered'] || 0 },
     { label: 'Not Sent', cls: 'st-nosend', count: counts['Not Sent'] || 0 },
     { label: 'Booked', cls: 'st-booked', count: counts['Booked'] || 0 },
+    { label: 'No Deposit', cls: 'st-nodeposit', count: noDepositItems.length },
   ];
   for (const b of badges) {
     html += `<span class="sched-sum-badge ${b.cls}">${b.count} ${b.label}</span>`;
@@ -799,6 +809,27 @@ function renderScheduler(data) {
   }
 
   html += `</tbody></table></div>`;
+
+  // No Deposit warning section
+  if (noDepositItems.length) {
+    html += `<div class="sched-nodeposit-section">`;
+    html += `<div class="sched-nodeposit-header">No Deposit — ${noDepositItems.length} Work Order${noDepositItems.length > 1 ? 's' : ''} without deposit collected</div>`;
+    html += `<div class="sched-table-wrap"><table class="sched-table"><thead><tr>
+      <th>Job</th><th>Client</th><th>Suburb</th><th>Queue</th><th class="sched-th-right">Job Total</th>
+    </tr></thead><tbody>`;
+    for (const j of noDepositItems) {
+      const amtStr = j.amount > 0 ? `$${j.amount.toLocaleString('en-AU', { minimumFractionDigits: 0 })}` : '';
+      html += `<tr class="sched-row sched-nodeposit-row">
+        <td class="sched-cell-id">${esc(j.jobId)}</td>
+        <td>${esc(j.client)}</td>
+        <td>${esc(j.suburb || '')}</td>
+        <td>${esc(j.queue || '')}</td>
+        <td class="sched-cell-right">${amtStr}</td>
+      </tr>`;
+    }
+    html += `</tbody></table></div></div>`;
+  }
+
   body.innerHTML = html;
 }
 
@@ -858,6 +889,204 @@ async function onCalDropSidebar(e) {
     showToast('Job moved to unscheduled');
   } catch {
     showToast('Failed to unschedule job', 'error');
+  }
+}
+
+// --- Orders ---
+let allOrders = [];
+let ordersFilter = 'pending';
+
+async function loadOrders() {
+  const body = document.getElementById('orders-body');
+  body.innerHTML = '<p style="color:#64748b;text-align:center;padding:40px;">Loading...</p>';
+  try {
+    const data = await fetch('/api/orders').then(r => r.json());
+    allOrders = data.items || [];
+    renderOrders();
+  } catch {
+    body.innerHTML = '<p style="color:#ef4444;text-align:center;padding:40px;">Failed to load orders</p>';
+  }
+}
+
+function setOrdersFilter(f) {
+  ordersFilter = f;
+  renderOrders();
+}
+
+function renderOrders() {
+  const body = document.getElementById('orders-body');
+
+  const pending = allOrders.filter(i => !i.orderedDate);
+  const ordered = allOrders.filter(i => i.orderedDate);
+  const items = ordersFilter === 'pending' ? pending : ordered;
+
+  // Group by jobId
+  const byJob = new Map();
+  for (const item of items) {
+    if (!byJob.has(item.jobId)) byJob.set(item.jobId, { jobId: item.jobId, clientName: item.clientName, items: [] });
+    byJob.get(item.jobId).items.push(item);
+  }
+
+  let html = '<div class="orders-topbar">';
+  html += '<div class="orders-filter-group">';
+  html += `<button class="orders-filter-btn ${ordersFilter === 'pending' ? 'active' : ''}" onclick="setOrdersFilter('pending')">Pending <span class="orders-filter-count">${pending.length}</span></button>`;
+  html += `<button class="orders-filter-btn ${ordersFilter === 'ordered' ? 'active' : ''}" onclick="setOrdersFilter('ordered')">Ordered <span class="orders-filter-count">${ordered.length}</span></button>`;
+  html += '</div>';
+  html += '<div class="orders-topbar-actions">';
+  if (ordersFilter === 'pending' && pending.length > 0) {
+    html += `<button class="orders-btn orders-btn-place" onclick="placeWeeklyOrder()">Place Weekly Order (${pending.length} item${pending.length > 1 ? 's' : ''})</button>`;
+  }
+  html += `<button class="orders-btn orders-btn-primary" onclick="showAddItemModal()">+ Add Item</button>`;
+  html += '</div></div>';
+
+  if (!items.length) {
+    const msg = ordersFilter === 'pending'
+      ? 'No pending items. Add items using the button above.'
+      : 'No ordered items yet.';
+    html += `<div class="orders-empty">${msg}</div>`;
+  } else {
+    html += '<div class="orders-list">';
+    for (const [, group] of byJob) {
+      html += '<div class="orders-job-group">';
+      html += '<div class="orders-job-header">';
+      html += `<span class="orders-job-id">#${esc(group.jobId)}</span>`;
+      if (group.clientName) html += `<span class="orders-job-client">${esc(group.clientName)}</span>`;
+      html += '</div>';
+      for (const item of group.items) {
+        html += '<div class="orders-item">';
+        html += `<div class="orders-item-desc">${esc(item.description)}</div>`;
+        html += '<div class="orders-item-actions">';
+        if (!item.orderedDate) {
+          html += `<button class="orders-act-btn orders-act-order" onclick="markItemOrdered('${item.id}')">Mark Ordered</button>`;
+        } else {
+          const d = new Date(item.orderedDate + 'T00:00:00');
+          const dateStr = d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+          html += `<span class="orders-ordered-date">Ordered ${dateStr}</span>`;
+          html += `<button class="orders-act-btn orders-act-unorder" onclick="unmarkItemOrdered('${item.id}')">Undo</button>`;
+        }
+        html += `<button class="orders-act-btn orders-act-delete" onclick="deleteOrderItem('${item.id}')">Delete</button>`;
+        html += '</div></div>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  body.innerHTML = html;
+}
+
+function showAddItemModal() {
+  document.getElementById('order-job-input').value = '';
+  document.getElementById('order-desc-input').value = '';
+  document.getElementById('order-job-hint').textContent = '';
+  document.getElementById('orders-modal-backdrop').style.display = 'flex';
+  setTimeout(() => document.getElementById('order-job-input').focus(), 50);
+}
+
+function closeOrdersModal(e) {
+  if (e && e.target !== document.getElementById('orders-modal-backdrop')) return;
+  document.getElementById('orders-modal-backdrop').style.display = 'none';
+}
+
+function onOrderJobInput(val) {
+  const hint = document.getElementById('order-job-hint');
+  const jobId = val.trim().replace(/^#/, '');
+  if (!jobId) { hint.textContent = ''; return; }
+  const job = allJobs.find(j => (j.generated_job_id || '').toLowerCase() === jobId.toLowerCase());
+  if (job) {
+    hint.textContent = `${job.company_name || 'Unknown client'} — ${job.status || ''}`;
+    hint.style.color = '#22c55e';
+  } else {
+    hint.textContent = 'Not found in cache (can still add)';
+    hint.style.color = '#94a3b8';
+  }
+}
+
+async function submitAddItem() {
+  const jobIdRaw = document.getElementById('order-job-input').value.trim().replace(/^#/, '');
+  const descRaw = document.getElementById('order-desc-input').value.trim();
+  if (!jobIdRaw || !descRaw) { showToast('Enter job number and at least one item', 'error'); return; }
+
+  const job = allJobs.find(j => (j.generated_job_id || '').toLowerCase() === jobIdRaw.toLowerCase());
+  const clientName = job ? (job.company_name || '') : '';
+
+  const lines = descRaw.split('\n').map(l => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
+
+  try {
+    for (const line of lines) {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: jobIdRaw, clientName, description: line }),
+      });
+      const item = await res.json();
+      allOrders.push(item);
+    }
+    document.getElementById('orders-modal-backdrop').style.display = 'none';
+    ordersFilter = 'pending';
+    renderOrders();
+    showToast(`${lines.length} item${lines.length > 1 ? 's' : ''} added`);
+  } catch {
+    showToast('Failed to add items', 'error');
+  }
+}
+
+async function markItemOrdered(id) {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
+  try {
+    await fetch(`/api/orders/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderedDate: today }),
+    });
+    const item = allOrders.find(i => i.id === id);
+    if (item) item.orderedDate = today;
+    renderOrders();
+    showToast('Marked as ordered');
+  } catch {
+    showToast('Failed to update', 'error');
+  }
+}
+
+async function unmarkItemOrdered(id) {
+  try {
+    await fetch(`/api/orders/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderedDate: null }),
+    });
+    const item = allOrders.find(i => i.id === id);
+    if (item) item.orderedDate = null;
+    renderOrders();
+    showToast('Order mark removed');
+  } catch {
+    showToast('Failed to update', 'error');
+  }
+}
+
+async function deleteOrderItem(id) {
+  if (!confirm('Delete this item?')) return;
+  try {
+    await fetch(`/api/orders/${id}`, { method: 'DELETE' });
+    allOrders = allOrders.filter(i => i.id !== id);
+    renderOrders();
+    showToast('Item deleted');
+  } catch {
+    showToast('Failed to delete', 'error');
+  }
+}
+
+async function placeWeeklyOrder() {
+  const count = allOrders.filter(i => !i.orderedDate).length;
+  if (!count) return;
+  if (!confirm(`Mark all ${count} pending items as ordered today?`)) return;
+  try {
+    const res = await fetch('/api/orders/batch-order', { method: 'POST' });
+    const data = await res.json();
+    await loadOrders();
+    showToast(`${data.count} items marked as ordered`);
+  } catch {
+    showToast('Failed to place order', 'error');
   }
 }
 

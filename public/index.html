@@ -20,6 +20,7 @@
         <button class="view-btn active" data-view="production" onclick="setView('production')">Production</button>
         <button class="view-btn" data-view="installation" onclick="setView('installation')">Installation</button>
         <button class="view-btn" data-view="schedule" onclick="setView('schedule')">Schedule</button>
+        <button class="view-btn" data-view="orders" onclick="setView('orders')">Orders</button>
       </div>
       <div class="filter-group">
         <button class="filter-btn" data-filter="all" onclick="setFilter('all')">All</button>
@@ -56,8 +57,46 @@
 
   <!-- Schedule view -->
   <div id="schedule-view" class="schedule-view hidden">
+    <div class="schedule-tabs">
+      <button class="sched-tab active" data-stab="calendar" onclick="setScheduleTab('calendar')">Calendar</button>
+      <button class="sched-tab" data-stab="scheduler" onclick="setScheduleTab('scheduler')">Scheduler</button>
+    </div>
     <div id="schedule-body" class="schedule-body">
       <p style="color:#64748b;">Loading...</p>
+    </div>
+  </div>
+
+  <!-- Orders view -->
+  <div id="orders-view" class="orders-view hidden">
+    <div id="orders-body"></div>
+  </div>
+
+  <!-- Orders add modal -->
+  <div id="orders-modal-backdrop" class="modal-backdrop" style="display:none" onclick="closeOrdersModal(event)">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h2 style="font-size:16px;margin-top:0;">Add Order Item</h2>
+        </div>
+        <button class="modal-close" onclick="closeOrdersModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="orders-form">
+          <div class="orders-form-field">
+            <label class="orders-form-label">Job Number</label>
+            <input id="order-job-input" type="text" class="orders-form-input" placeholder="e.g. 1694" oninput="onOrderJobInput(this.value)" autocomplete="off">
+            <div id="order-job-hint" class="orders-form-hint"></div>
+          </div>
+          <div class="orders-form-field">
+            <label class="orders-form-label">Items — one per line</label>
+            <textarea id="order-desc-input" class="orders-form-input orders-form-textarea" placeholder="Double Top Track&#10;Double Bottom Track&#10;H Track x 2" rows="5"></textarea>
+          </div>
+          <div class="orders-form-actions">
+            <button class="orders-btn orders-btn-secondary" onclick="closeOrdersModal()">Cancel</button>
+            <button class="orders-btn orders-btn-primary" onclick="submitAddItem()">Add to List</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 

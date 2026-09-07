@@ -1,4 +1,5 @@
 import { readFileSync } from 'fs';
+import { randomUUID } from 'crypto';
 import express from 'express';
 import compression from 'compression';
 import helmet from 'helmet';
@@ -28,6 +29,11 @@ const overridesPath = join(dataDir, 'schedule-overrides.json');
 let scheduleOverrides = {};
 try { scheduleOverrides = JSON.parse(readF(overridesPath, 'utf-8')); } catch {}
 function saveOverrides() { writeF(overridesPath, JSON.stringify(scheduleOverrides), 'utf-8'); }
+
+const ordersPath = join(dataDir, 'orders.json');
+let ordersData = { items: [] };
+try { ordersData = JSON.parse(readF(ordersPath, 'utf-8')); } catch {}
+function saveOrders() { writeF(ordersPath, JSON.stringify(ordersData), 'utf-8'); }
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -107,31 +113,29 @@ app.get('/api/schedule', (_req, res) => {
 
 app.get('/api/scheduler', (_req, res) => {
   const jobs = cache.getJobs();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Use Brisbane date (UTC+10) so morning orders don't show negative days
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }); // "YYYY-MM-DD"
 
-  // All WO jobs with deposits (same eligibility as calendar)
+  // All WO jobs
   const items = jobs
     .filter(j => {
       if (j.status !== 'Work Order') return false;
       if (!j.generated_job_id || j.generated_job_id === 'SAMPLE') return false;
-      const hasPartialInvoice = (j.materials || []).some(
-        m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
-      );
-      const hasPayment = j.payment_date && !j.payment_date.startsWith('0000');
-      return hasPartialInvoice || hasPayment;
+      return true;
     })
     .map(j => {
       const hasOrderForm = !!j.order_form_sent_date;
-      const sentDate = hasOrderForm ? new Date(j.order_form_sent_date) : null;
-      const daysSinceSent = sentDate ? Math.floor((today - sentDate) / (1000 * 60 * 60 * 24)) : null;
+      // SM8 timestamps are Brisbane local time — compare date strings to avoid UTC offset errors
+      const sentDateStr = hasOrderForm ? j.order_form_sent_date.slice(0, 10) : null;
+      const daysSinceSent = sentDateStr
+        ? Math.round((new Date(todayStr) - new Date(sentDateStr)) / (1000 * 60 * 60 * 24))
+        : null;
       // Ready window: 18-25 days (2.5-3.5 weeks)
       const readyWindowStart = 18;
       const readyWindowEnd = 25;
       const hasBooking = j.job_is_scheduled_until_stamp && !j.job_is_scheduled_until_stamp.startsWith('0000');
       const bookedDate = hasBooking ? j.job_is_scheduled_until_stamp.slice(0, 10) : null;
-      const todayStr = today.toISOString().slice(0, 10);
-      const isBooked = hasBooking && bookedDate >= todayStr && sentDate && new Date(bookedDate) >= sentDate;
+      const isBooked = hasBooking && bookedDate >= todayStr && sentDateStr && bookedDate >= sentDateStr;
       const hasPartialInvoice = (j.materials || []).some(
         m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
       );
@@ -145,7 +149,7 @@ app.get('/api/scheduler', (_req, res) => {
         suburb: j.geo_city || '',
         queue: j.queue_name || '',
         hasOrderForm,
-        orderFormSentDate: sentDate ? j.order_form_sent_date.slice(0, 10) : null,
+        orderFormSentDate: sentDateStr,
         daysSinceSent,
         readyWindowStart,
         readyWindowEnd,
@@ -288,6 +292,53 @@ app.post('/api/webhook', async (req, res) => {
       console.error('Webhook processing error:', err.message);
     }
   }
+});
+
+// --- Orders routes ---
+app.get('/api/orders', (_req, res) => {
+  res.json(ordersData);
+});
+
+app.post('/api/orders', (req, res) => {
+  const { jobId, clientName, description } = req.body;
+  if (!jobId || !description) return res.status(400).json({ error: 'jobId and description required' });
+  const item = {
+    id: randomUUID(),
+    jobId: String(jobId).trim(),
+    clientName: (clientName || '').trim(),
+    description: String(description).trim(),
+    orderedDate: null,
+    createdAt: new Date().toISOString(),
+  };
+  ordersData.items.push(item);
+  saveOrders();
+  res.json(item);
+});
+
+app.patch('/api/orders/:id', (req, res) => {
+  const item = ordersData.items.find(i => i.id === req.params.id);
+  if (!item) return res.status(404).json({ error: 'Not found' });
+  if ('orderedDate' in req.body) item.orderedDate = req.body.orderedDate;
+  saveOrders();
+  res.json(item);
+});
+
+app.post('/api/orders/batch-order', (_req, res) => {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
+  let count = 0;
+  for (const item of ordersData.items) {
+    if (!item.orderedDate) { item.orderedDate = today; count++; }
+  }
+  saveOrders();
+  res.json({ ok: true, count });
+});
+
+app.delete('/api/orders/:id', (req, res) => {
+  const idx = ordersData.items.findIndex(i => i.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Not found' });
+  ordersData.items.splice(idx, 1);
+  saveOrders();
+  res.json({ ok: true });
 });
 
 // --- Static serving ---
