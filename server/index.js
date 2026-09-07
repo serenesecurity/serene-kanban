@@ -307,6 +307,7 @@ app.post('/api/orders', (req, res) => {
     jobId: String(jobId).trim(),
     clientName: (clientName || '').trim(),
     description: String(description).trim(),
+    supplier: (req.body.supplier || '').trim(),
     orderedDate: null,
     createdAt: new Date().toISOString(),
   };
@@ -319,6 +320,7 @@ app.patch('/api/orders/:id', (req, res) => {
   const item = ordersData.items.find(i => i.id === req.params.id);
   if (!item) return res.status(404).json({ error: 'Not found' });
   if ('orderedDate' in req.body) item.orderedDate = req.body.orderedDate;
+  if ('supplier' in req.body) item.supplier = (req.body.supplier || '').trim();
   saveOrders();
   res.json(item);
 });

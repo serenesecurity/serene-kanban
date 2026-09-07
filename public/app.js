@@ -947,15 +947,28 @@ function renderOrders() {
   } else {
     html += '<div class="orders-list">';
     for (const [, group] of byJob) {
+      // Look up install date from job cache
+      const jobData = allJobs.find(j => (j.generated_job_id || '') === group.jobId);
+      const installStamp = jobData?.job_is_scheduled_until_stamp;
+      const installDate = installStamp && !installStamp.startsWith('0000')
+        ? new Date(installStamp).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
+        : null;
+
       html += '<div class="orders-job-group">';
       html += '<div class="orders-job-header">';
       html += `<span class="orders-job-id">#${esc(group.jobId)}</span>`;
       if (group.clientName) html += `<span class="orders-job-client">${esc(group.clientName)}</span>`;
+      if (installDate) html += `<span class="orders-install-date">Install: ${esc(installDate)}</span>`;
       html += '</div>';
       for (const item of group.items) {
         html += '<div class="orders-item">';
         html += `<div class="orders-item-desc">${esc(item.description)}</div>`;
         html += '<div class="orders-item-actions">';
+        if (item.supplier) {
+          html += `<span class="orders-supplier-pill" onclick="editSupplier('${item.id}', this)" title="Click to edit">${esc(item.supplier)}</span>`;
+        } else {
+          html += `<button class="orders-act-btn orders-act-supplier" onclick="editSupplier('${item.id}', this)">+ Supplier</button>`;
+        }
         if (!item.orderedDate) {
           html += `<button class="orders-act-btn orders-act-order" onclick="markItemOrdered('${item.id}')">Mark Ordered</button>`;
         } else {
@@ -977,6 +990,7 @@ function renderOrders() {
 
 function showAddItemModal() {
   document.getElementById('order-job-input').value = '';
+  document.getElementById('order-supplier-input').value = '';
   document.getElementById('order-desc-input').value = '';
   document.getElementById('order-job-hint').textContent = '';
   document.getElementById('orders-modal-backdrop').style.display = 'flex';
@@ -1004,6 +1018,7 @@ function onOrderJobInput(val) {
 
 async function submitAddItem() {
   const jobIdRaw = document.getElementById('order-job-input').value.trim().replace(/^#/, '');
+  const supplier = document.getElementById('order-supplier-input').value.trim();
   const descRaw = document.getElementById('order-desc-input').value.trim();
   if (!jobIdRaw || !descRaw) { showToast('Enter job number and at least one item', 'error'); return; }
 
@@ -1017,7 +1032,7 @@ async function submitAddItem() {
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: jobIdRaw, clientName, description: line }),
+        body: JSON.stringify({ jobId: jobIdRaw, clientName, description: line, supplier }),
       });
       const item = await res.json();
       allOrders.push(item);
@@ -1028,6 +1043,24 @@ async function submitAddItem() {
     showToast(`${lines.length} item${lines.length > 1 ? 's' : ''} added`);
   } catch {
     showToast('Failed to add items', 'error');
+  }
+}
+
+async function editSupplier(id, el) {
+  const item = allOrders.find(i => i.id === id);
+  const current = item?.supplier || '';
+  const val = prompt('Supplier name:', current);
+  if (val === null) return;
+  try {
+    await fetch(`/api/orders/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ supplier: val.trim() }),
+    });
+    if (item) item.supplier = val.trim();
+    renderOrders();
+  } catch {
+    showToast('Failed to update supplier', 'error');
   }
 }
 
