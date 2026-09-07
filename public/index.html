@@ -73,32 +73,70 @@
 
   <!-- Orders add modal -->
   <div id="orders-modal-backdrop" class="modal-backdrop" style="display:none" onclick="closeOrdersModal(event)">
-    <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal modal-wide" onclick="event.stopPropagation()">
       <div class="modal-header">
         <div>
-          <h2 style="font-size:16px;margin-top:0;">Add Order Item</h2>
+          <h2 style="font-size:16px;margin-top:0;">Add Order Items</h2>
         </div>
         <button class="modal-close" onclick="closeOrdersModal()">&times;</button>
       </div>
       <div class="modal-body">
         <div class="orders-form">
-          <div class="orders-form-field">
-            <label class="orders-form-label">Job Number</label>
-            <input id="order-job-input" type="text" class="orders-form-input" placeholder="e.g. 1694" oninput="onOrderJobInput(this.value)" autocomplete="off">
-            <div id="order-job-hint" class="orders-form-hint"></div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <div class="orders-form-field" style="flex:1;min-width:120px;">
+              <label class="orders-form-label">Job Number</label>
+              <input id="order-job-input" type="text" class="orders-form-input" placeholder="e.g. 1694" oninput="onOrderJobInput(this.value)" autocomplete="off">
+              <div id="order-job-hint" class="orders-form-hint"></div>
+            </div>
+            <div class="orders-form-field" style="flex:1;min-width:140px;">
+              <label class="orders-form-label">Supplier</label>
+              <input id="order-supplier-input" type="text" class="orders-form-input" placeholder="e.g. Darley" autocomplete="off">
+            </div>
           </div>
           <div class="orders-form-field">
-            <label class="orders-form-label">Supplier</label>
-            <input id="order-supplier-input" type="text" class="orders-form-input" placeholder="e.g. Prowler Proof" autocomplete="off">
-          </div>
-          <div class="orders-form-field">
-            <label class="orders-form-label">Items — one per line</label>
-            <textarea id="order-desc-input" class="orders-form-input orders-form-textarea" placeholder="Double Top Track&#10;Double Bottom Track&#10;H Track x 2" rows="5"></textarea>
+            <label class="orders-form-label">Items</label>
+            <div style="overflow-x:auto;">
+              <table class="oi-table">
+                <thead><tr>
+                  <th>Code</th><th>Description</th><th>Colour</th><th>Qty</th><th></th>
+                </tr></thead>
+                <tbody id="order-items-tbody">
+                  <tr>
+                    <td><input type="text" class="orders-form-input oi-code" placeholder="AN2550"></td>
+                    <td><input type="text" class="orders-form-input oi-desc" placeholder="Description"></td>
+                    <td><input type="text" class="orders-form-input oi-colour" placeholder="Black"></td>
+                    <td><input type="number" class="orders-form-input oi-qty" value="1" min="1"></td>
+                    <td><button class="orders-row-remove" onclick="removeOrderRow(this)">×</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <button class="orders-btn orders-btn-secondary" style="margin-top:8px;font-size:12px;padding:4px 12px;" onclick="addOrderRow()">+ Add Row</button>
           </div>
           <div class="orders-form-actions">
             <button class="orders-btn orders-btn-secondary" onclick="closeOrdersModal()">Cancel</button>
             <button class="orders-btn orders-btn-primary" onclick="submitAddItem()">Add to List</button>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export email modal -->
+  <div id="export-modal-backdrop" class="modal-backdrop" style="display:none" onclick="closeExportModal(event)">
+    <div class="modal modal-wide" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h2 style="font-size:16px;margin-top:0;">Email Order</h2>
+          <div style="font-size:12px;color:#64748b;margin-top:2px;">Reference: <span id="export-ref" style="font-family:monospace;color:#94a3b8;"></span></div>
+        </div>
+        <button class="modal-close" onclick="closeExportModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <textarea id="export-body" class="orders-form-input orders-form-textarea" rows="18" style="font-family:monospace;font-size:12px;width:100%;"></textarea>
+        <div class="orders-form-actions" style="margin-top:12px;">
+          <button class="orders-btn orders-btn-secondary" onclick="closeExportModal()">Close</button>
+          <button class="orders-btn orders-btn-primary" onclick="copyExportEmail()">Copy to Clipboard</button>
         </div>
       </div>
     </div>

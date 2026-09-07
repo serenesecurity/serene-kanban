@@ -680,6 +680,8 @@ body {
 .orders-btn-secondary:hover { color: var(--text); }
 .orders-btn-place { background: rgba(34,197,94,0.12); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
 .orders-btn-place:hover { background: rgba(34,197,94,0.22); }
+.orders-btn-export { background: rgba(56,189,248,0.12); color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); }
+.orders-btn-export:hover { background: rgba(56,189,248,0.22); }
 .orders-empty {
   text-align: center;
   color: var(--text-muted);
@@ -717,7 +719,11 @@ body {
   gap: 12px;
 }
 .orders-item:last-child { border-bottom: none; }
-.orders-item-desc { font-size: 14px; color: var(--text); flex: 1; }
+.orders-item-main { display: flex; align-items: center; gap: 8px; flex: 1; flex-wrap: wrap; }
+.orders-item-code { font-size: 11px; font-family: monospace; font-weight: 700; color: var(--text-dim); background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 3px; white-space: nowrap; }
+.orders-item-desc { font-size: 14px; color: var(--text); }
+.orders-item-colour { font-size: 11px; color: var(--text-muted); }
+.orders-item-qty { font-size: 12px; font-weight: 700; color: var(--accent); }
 .orders-item-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .orders-act-btn {
   padding: 4px 10px;
@@ -750,6 +756,16 @@ body {
 }
 .orders-supplier-pill:hover { background: rgba(167,139,250,0.28); }
 .orders-ordered-date { font-size: 11px; color: #4ade80; font-weight: 500; }
+/* Orders entry table */
+.modal-wide { max-width: 700px !important; }
+.oi-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.oi-table th { text-align: left; padding: 4px 6px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid var(--border); }
+.oi-table td { padding: 4px 4px; vertical-align: middle; }
+.oi-table .oi-code { width: 90px; }
+.oi-table .oi-colour { width: 90px; }
+.oi-table .oi-qty { width: 54px; }
+.orders-row-remove { background: none; border: none; color: var(--text-muted); font-size: 16px; cursor: pointer; padding: 0 6px; line-height: 1; }
+.orders-row-remove:hover { color: var(--danger); }
 /* Orders form */
 .orders-form { display: flex; flex-direction: column; gap: 16px; }
 .orders-form-field { display: flex; flex-direction: column; gap: 6px; }

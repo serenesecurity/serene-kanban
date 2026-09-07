@@ -934,6 +934,7 @@ function renderOrders() {
   html += '</div>';
   html += '<div class="orders-topbar-actions">';
   if (ordersFilter === 'pending' && pending.length > 0) {
+    html += `<button class="orders-btn orders-btn-export" onclick="exportEmail()">Export Email</button>`;
     html += `<button class="orders-btn orders-btn-place" onclick="placeWeeklyOrder()">Place Weekly Order (${pending.length} item${pending.length > 1 ? 's' : ''})</button>`;
   }
   html += `<button class="orders-btn orders-btn-primary" onclick="showAddItemModal()">+ Add Item</button>`;
@@ -962,7 +963,12 @@ function renderOrders() {
       html += '</div>';
       for (const item of group.items) {
         html += '<div class="orders-item">';
-        html += `<div class="orders-item-desc">${esc(item.description)}</div>`;
+        html += '<div class="orders-item-main">';
+        if (item.code) html += `<span class="orders-item-code">${esc(item.code)}</span>`;
+        html += `<span class="orders-item-desc">${esc(item.description)}</span>`;
+        if (item.colour) html += `<span class="orders-item-colour">${esc(item.colour)}</span>`;
+        if (item.qty && item.qty > 1) html += `<span class="orders-item-qty">×${item.qty}</span>`;
+        html += '</div>';
         html += '<div class="orders-item-actions">';
         if (item.supplier) {
           html += `<span class="orders-supplier-pill" onclick="editSupplier('${item.id}', this)" title="Click to edit">${esc(item.supplier)}</span>`;
@@ -991,10 +997,36 @@ function renderOrders() {
 function showAddItemModal() {
   document.getElementById('order-job-input').value = '';
   document.getElementById('order-supplier-input').value = '';
-  document.getElementById('order-desc-input').value = '';
   document.getElementById('order-job-hint').textContent = '';
+  document.getElementById('order-items-tbody').innerHTML = `
+    <tr>
+      <td><input type="text" class="orders-form-input oi-code" placeholder="AN2550"></td>
+      <td><input type="text" class="orders-form-input oi-desc" placeholder="Description"></td>
+      <td><input type="text" class="orders-form-input oi-colour" placeholder="Black"></td>
+      <td><input type="number" class="orders-form-input oi-qty" value="1" min="1"></td>
+      <td><button class="orders-row-remove" onclick="removeOrderRow(this)">×</button></td>
+    </tr>`;
   document.getElementById('orders-modal-backdrop').style.display = 'flex';
   setTimeout(() => document.getElementById('order-job-input').focus(), 50);
+}
+
+function addOrderRow() {
+  const tbody = document.getElementById('order-items-tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" class="orders-form-input oi-code" placeholder="AN2550"></td>
+    <td><input type="text" class="orders-form-input oi-desc" placeholder="Description"></td>
+    <td><input type="text" class="orders-form-input oi-colour" placeholder="Black"></td>
+    <td><input type="number" class="orders-form-input oi-qty" value="1" min="1"></td>
+    <td><button class="orders-row-remove" onclick="removeOrderRow(this)">×</button></td>`;
+  tbody.appendChild(tr);
+  tr.querySelector('.oi-code').focus();
+}
+
+function removeOrderRow(btn) {
+  const tbody = document.getElementById('order-items-tbody');
+  if (tbody.rows.length <= 1) return;
+  btn.closest('tr').remove();
 }
 
 function closeOrdersModal(e) {
@@ -1019,20 +1051,30 @@ function onOrderJobInput(val) {
 async function submitAddItem() {
   const jobIdRaw = document.getElementById('order-job-input').value.trim().replace(/^#/, '');
   const supplier = document.getElementById('order-supplier-input').value.trim();
-  const descRaw = document.getElementById('order-desc-input').value.trim();
-  if (!jobIdRaw || !descRaw) { showToast('Enter job number and at least one item', 'error'); return; }
+  if (!jobIdRaw) { showToast('Enter a job number', 'error'); return; }
 
   const job = allJobs.find(j => (j.generated_job_id || '').toLowerCase() === jobIdRaw.toLowerCase());
   const clientName = job ? (job.company_name || '') : '';
 
-  const lines = descRaw.split('\n').map(l => l.replace(/^[-•*]\s*/, '').trim()).filter(Boolean);
+  const rows = [];
+  document.querySelectorAll('#order-items-tbody tr').forEach(tr => {
+    const desc = tr.querySelector('.oi-desc')?.value.trim() || '';
+    if (!desc) return;
+    rows.push({
+      code: tr.querySelector('.oi-code')?.value.trim() || '',
+      description: desc,
+      colour: tr.querySelector('.oi-colour')?.value.trim() || '',
+      qty: parseInt(tr.querySelector('.oi-qty')?.value) || 1,
+    });
+  });
+  if (!rows.length) { showToast('Add at least one item description', 'error'); return; }
 
   try {
-    for (const line of lines) {
+    for (const row of rows) {
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: jobIdRaw, clientName, description: line, supplier }),
+        body: JSON.stringify({ jobId: jobIdRaw, clientName, supplier, ...row }),
       });
       const item = await res.json();
       allOrders.push(item);
@@ -1040,7 +1082,7 @@ async function submitAddItem() {
     document.getElementById('orders-modal-backdrop').style.display = 'none';
     ordersFilter = 'pending';
     renderOrders();
-    showToast(`${lines.length} item${lines.length > 1 ? 's' : ''} added`);
+    showToast(`${rows.length} item${rows.length > 1 ? 's' : ''} added`);
   } catch {
     showToast('Failed to add items', 'error');
   }
@@ -1106,6 +1148,56 @@ async function deleteOrderItem(id) {
     showToast('Item deleted');
   } catch {
     showToast('Failed to delete', 'error');
+  }
+}
+
+function exportEmail() {
+  const pending = allOrders.filter(i => !i.orderedDate);
+  if (!pending.length) { showToast('No pending items to export', 'error'); return; }
+
+  const now = new Date(new Date().toLocaleString('en-AU', { timeZone: 'Australia/Brisbane' }));
+  const ref = `${String(now.getDate()).padStart(2,'0')}${String(now.getMonth()+1).padStart(2,'0')}${now.getFullYear()}`;
+  const DELIVERY = '38a Maryborough Terrace, Scarborough QLD 4020';
+
+  // Group by supplier
+  const bySupplier = new Map();
+  for (const item of pending) {
+    const s = item.supplier || '';
+    if (!bySupplier.has(s)) bySupplier.set(s, []);
+    bySupplier.get(s).push(item);
+  }
+
+  let body = '';
+  let first = true;
+  for (const [, items] of bySupplier) {
+    if (!first) body += '\n\n---\n\n';
+    first = false;
+    body += `Hi,\n\nCan we please order the following, to be delivered to: ${DELIVERY}.\n\nPlease let us know if any items are on back order and an approx. lead time.\n`;
+    body += `\nCode\tDescription\tColour\tQuantity\n`;
+    for (const item of items) {
+      body += `${item.code || ''}\t${item.description}\t${item.colour || ''}\t${item.qty || 1}\n`;
+    }
+    body += `\nThanks,\nSerene Security`;
+  }
+
+  document.getElementById('export-ref').textContent = ref;
+  document.getElementById('export-body').value = body;
+  document.getElementById('export-modal-backdrop').style.display = 'flex';
+}
+
+function closeExportModal(e) {
+  if (e && e.target !== document.getElementById('export-modal-backdrop')) return;
+  document.getElementById('export-modal-backdrop').style.display = 'none';
+}
+
+async function copyExportEmail() {
+  const text = document.getElementById('export-body').value;
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('Copied to clipboard');
+  } catch {
+    document.getElementById('export-body').select();
+    showToast('Select all and copy manually', 'error');
   }
 }
 
