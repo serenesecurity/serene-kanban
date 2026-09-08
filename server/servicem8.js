@@ -36,6 +36,9 @@ export function createServiceM8Client(apiKey) {
     fetchAllJobMaterials() {
       return request('/jobmaterial.json');
     },
+    fetchAllJobChecklists() {
+      return request('/JobChecklist.json');
+    },
     updateJob(uuid, data) {
       return request(`/job/${uuid}.json`, {
         method: 'POST',
