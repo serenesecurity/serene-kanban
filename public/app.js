@@ -1530,16 +1530,19 @@ function renderOrders() {
       // Look up install date from job cache
       const jobData = allJobs.find(j => (j.generated_job_id || '') === group.jobId);
       const installStamp = jobData?.job_is_scheduled_until_stamp;
-      const installDate = installStamp && !installStamp.startsWith('0000')
-        ? new Date(installStamp).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
+      const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
+      const installDateStr = installStamp && !installStamp.startsWith('0000')
+        ? installStamp.slice(0, 10)
+        : null;
+      const installLabel = installDateStr && installDateStr >= todayStr
+        ? new Date(installDateStr + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
         : null;
 
       html += '<div class="orders-job-group">';
       html += '<div class="orders-job-header">';
       html += `<span class="orders-job-id">#${esc(group.jobId)}</span>`;
       if (group.clientName) html += `<span class="orders-job-client">${esc(group.clientName)}</span>`;
-      const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
-      if (installDate && installDate >= todayStr) html += `<span class="orders-install-date">Install: ${esc(installDate)}</span>`;
+      if (installLabel) html += `<span class="orders-install-date">Install: ${esc(installLabel)}</span>`;
       html += '</div>';
       for (const item of group.items) {
         html += '<div class="orders-item">';
