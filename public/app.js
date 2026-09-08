@@ -1538,7 +1538,8 @@ function renderOrders() {
       html += '<div class="orders-job-header">';
       html += `<span class="orders-job-id">#${esc(group.jobId)}</span>`;
       if (group.clientName) html += `<span class="orders-job-client">${esc(group.clientName)}</span>`;
-      if (installDate) html += `<span class="orders-install-date">Install: ${esc(installDate)}</span>`;
+      const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
+      if (installDate && installDate >= todayStr) html += `<span class="orders-install-date">Install: ${esc(installDate)}</span>`;
       html += '</div>';
       for (const item of group.items) {
         html += '<div class="orders-item">';
