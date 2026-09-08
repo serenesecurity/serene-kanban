@@ -766,6 +766,13 @@ body {
 .oi-table .oi-qty { width: 54px; }
 .orders-row-remove { background: none; border: none; color: var(--text-muted); font-size: 16px; cursor: pointer; padding: 0 6px; line-height: 1; }
 .orders-row-remove:hover { color: var(--danger); }
+
+/* Catalogue autocomplete */
+.oi-ac-dropdown { position: fixed; z-index: 9999; background: #1e293b; border: 1px solid #334155; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.5); overflow-y: auto; max-height: 280px; }
+.oi-ac-item { display: flex; align-items: baseline; gap: 10px; padding: 7px 12px; cursor: pointer; font-size: 12px; }
+.oi-ac-item:hover, .oi-ac-item.active { background: #334155; }
+.oi-ac-code { font-family: monospace; font-size: 11px; color: #38bdf8; flex-shrink: 0; min-width: 80px; }
+.oi-ac-desc { color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Orders form */
 .orders-form { display: flex; flex-direction: column; gap: 16px; }
 .orders-form-field { display: flex; flex-direction: column; gap: 6px; }

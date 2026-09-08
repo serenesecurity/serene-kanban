@@ -892,6 +892,585 @@ async function onCalDropSidebar(e) {
   }
 }
 
+// --- Darley Catalogue ---
+const DARLEY_CATALOGUE = [
+  ['AU01001','ScreenGuard Security Door Frame'],
+  ['AU01002','ScreenGuard 11mm Window Frame'],
+  ['AU01003','ScreenGuard 8mm Window Frame'],
+  ['AU01004','ScreenGuard 41mm Mid Rail'],
+  ['AU01006','ScreenGuard 11mm Window Frame With Leg'],
+  ['AU01012','ScreenGuard Extreme Door Frame'],
+  ['AU01013','ScreenGuard Door Frame With Panel Insert'],
+  ['AU01014','ScreenGuard 70mm Mid Rail With Screw Flutes'],
+  ['AU01015','ScreenGuard Extreme Window Frame'],
+  ['AU01016','ScreenGuard Extreme Build Out Frame'],
+  ['AU03001','ScreenGuard ACCESS Window Frame'],
+  ['AU03004','ScreenGuard ACCESS Catch'],
+  ['AU03005','ScreenGuard ACCESS Outer Frame'],
+  ['AU01-1050-20','316 Stainless Steel Mesh 1050 x 2000mm'],
+  ['AU01-1050-24','316 Stainless Steel Mesh 1050 x 2400mm'],
+  ['AU01-1212','316 Stainless Steel Mesh 1200 x 1200mm'],
+  ['AU01-1215','316 Stainless Steel Mesh 1200 x 1500mm'],
+  ['AU01-1220','316 Stainless Steel Mesh 1200 x 2000mm'],
+  ['AU01-1224','316 Stainless Steel Mesh 1200 x 2400mm'],
+  ['AU01-1230','316 Stainless Steel Mesh 1200 x 3000mm'],
+  ['AU01-1520','316 Stainless Steel Mesh 1500 x 2000mm'],
+  ['AU01-1524','316 Stainless Steel Mesh 1500 x 2400mm'],
+  ['AU01-1530','316 Stainless Steel Mesh 1500 x 3000mm'],
+  ['AU01-7512','316 Stainless Steel Mesh 750 x 1200mm'],
+  ['AU01-7515','316 Stainless Steel Mesh 750 x 1500mm'],
+  ['AU01-7520','316 Stainless Steel Mesh 750 x 2000mm'],
+  ['AU01-7524','316 Stainless Steel Mesh 750 x 2400mm'],
+  ['AU01-7530','316 Stainless Steel Mesh 750 x 3000mm'],
+  ['AU01-9012','316 Stainless Steel Mesh 900 x 1200mm'],
+  ['AU01-9015','316 Stainless Steel Mesh 900 x 1500mm'],
+  ['AU01-9020','316 Stainless Steel Mesh 900 x 2000mm'],
+  ['AU01-9024','316 Stainless Steel Mesh 900 x 2400mm'],
+  ['AU01-9030','316 Stainless Steel Mesh 900 x 3000mm'],
+  ['AU2-1224','304 Stainless Steel Mesh 1200 x 2400 x 1.2mm'],
+  ['AU2-1524','304 Stainless Steel Mesh 1500 x 2400 x 1.2mm'],
+  ['AU2-7524','304 Stainless Steel Mesh 750 x 2400 x 1.2mm'],
+  ['AU2-9024','304 Stainless Steel Mesh 900 x 2400 x 1.2mm'],
+  ['AU02-105','ShutterView Multi-Fold Head Track'],
+  ['AU02-106','ShutterView Multi-Fold / Sliding Top Track'],
+  ['AU02-107','ShutterView Shutter Sill Track'],
+  ['DB3222','16mm Bug Strip'],
+  ['DB3223','Under Door Bug Strip Retainer'],
+  ['DB3227','25mm Bug Strip Retainer'],
+  ['DF001','Security Door Frame'],
+  ['DF006','Fly Door Frame'],
+  ['DF007','Frame Cover'],
+  ['DF012','PerfGuard Aluminium Perforated Mesh 1.6mm Fixing Bead'],
+  ['DF013','Heavy DVA 3.0mm Fixing Bead'],
+  ['DI3224','7mm Offset Interlock'],
+  ['DI3225','13mm Frame Interlock'],
+  ['DI3228','28mm Interlock'],
+  ['DI3229','3mm Offset Interlock'],
+  ['DJ3250','40mm Small Enclosed Jamb Adaptor'],
+  ['DJ3260','60mm Large Enclosed Jamb Adaptor'],
+  ['DT3020','Servery Window Track'],
+  ['DT3192','Channel 25 x 19 x 1.2mm'],
+  ['DT3202','36mm Large H Section'],
+  ['DT3203','Top Track Adaptor'],
+  ['DT3204','Light H Receiver'],
+  ['DT3205','Heavy H Receiver'],
+  ['DT3206','7mm Offset Interlock Extended'],
+  ['DT3207','Corner Receiver'],
+  ['DT3210','T Section Double Door with Seal'],
+  ['DT3221','Sliding Track'],
+  ['DT3223','Channel 24 x 24 x 1.2mm'],
+  ['DT3226','Light T Section'],
+  ['DT3231','J Track'],
+  ['DT3232','Pip Screen Track'],
+  ['DT3333','H Track'],
+  ['DT3344','Jamb Offset H Receiver'],
+  ['DT3353','Double Bottom Track'],
+  ['DT3354','Double Top Track'],
+  ['DT3355','16 x 16 x 1.6mm Screen Top Track'],
+  ['DT3356','Chainwinder Adaptor'],
+  ['DT3553','Single Screen Channel'],
+  ['DT3557','Single Face Fix Top Track'],
+  ['DT3558','Single Face Fix Bottom Track'],
+  ['DVA1222','DVA One Way Mesh 1200 x 2200mm'],
+  ['ESY004','ScreenSmart 50mm Picket Jamb'],
+  ['ESY010','ScreenSmart 50 x 50mm Double Sided Post'],
+  ['ESY011','ScreenSmart 50 x 50mm Corner Post'],
+  ['ESY012','ScreenSmart Single Sided Gate Post'],
+  ['HFF180','25 x 11mm Extruded Fly Frame'],
+  ['HFF181','21 x 9mm Extruded Fly Frame'],
+  ['HFF184','Extruded Spreader Bar'],
+  ['HIS101','Patio Post'],
+  ['HIS102','ScreenView 75mm Gate Track'],
+  ['PIC003','ScreenSmart 65 x 16 x 1.4mm Picket'],
+  ['PIC009','ScreenSmart 50 x 50mm Single Sided Picket Post'],
+  ['PIC010','ScreenSmart 50 x 50mm Double Sided Picket Post'],
+  ['PIC012','ScreenSmart 100 x 16 x 1.4mm Picket'],
+  ['PIC013','ScreenSmart 38 x 16 x 1.4mm Picket'],
+  ['PIC014','ScreenSmart 65 x 16 x 1.2mm Picket'],
+  ['PIC040','ScreenSmart 70 x 8mm Blade'],
+  ['PIC041','ScreenSmart 38 x 8mm Blade'],
+  ['PIC042','ScreenSmart 70mm Frame Slotted'],
+  ['PIC043','ScreenSmart 39mm Frame Slotted'],
+  ['PIC044','ScreenSmart 38 x 21mm Mullion Slotted'],
+  ['PIC045','ScreenSmart 51 x 35mm Fixing Channel'],
+  ['PM16-1220','PerfGuard Aluminium Perforated Mesh 1200 x 2000mm x 1.6mm'],
+  ['PM16-1224','PerfGuard Aluminium Perforated Mesh 1200 x 2400mm x 1.6mm'],
+  ['PM16-7520','PerfGuard Aluminium Perforated Mesh 750 x 2000mm x 1.6mm'],
+  ['PM16-9020','PerfGuard Aluminium Perforated Mesh 900 x 2000mm x 1.6mm'],
+  ['PM16-9024','PerfGuard Aluminium Perforated Mesh 900 x 2400mm x 1.6mm'],
+  ['PSH-001','PerfGuard 5.4mm Fixing Bead'],
+  ['SDG1160-20','7mm Small Diamond Grille 1160 x 2000mm'],
+  ['SDG1160-24','7mm Small Diamond Grille 1160 x 2400mm'],
+  ['SDG942-20','7mm Small Diamond Grille 942 x 2000mm'],
+  ['SDG942-24','7mm Small Diamond Grille 942 x 2400mm'],
+  ['SE001','Patio Rail'],
+  ['SE002','Patio Post'],
+  ['SE003','Patio Channel'],
+  ['SE004','Screen Adaptor'],
+  ['SE9-001','Ridged Spline 3m/Ln'],
+  ['SG1120','7mm Diamond Grille 1100 x 2000mm'],
+  ['SG1220','7mm Diamond Grille 1250 x 2050mm'],
+  ['SG1224','7mm Diamond Grille 1250 x 2450mm'],
+  ['SG1230','7mm Diamond Grille 1250 x 3000mm'],
+  ['SG1260','7mm Diamond Grille 1250 x 6250mm'],
+  ['SG7020','7mm Diamond Grille 705 x 2000mm'],
+  ['SG7520','7mm Diamond Grille 750 x 2050mm'],
+  ['SG7524','7mm Diamond Grille 750 x 2450mm'],
+  ['SG7530','7mm Diamond Grille 750 x 3000mm'],
+  ['SG7560','7mm Diamond Grille 750 x 6250mm'],
+  ['SG8220','7mm Diamond Grille 830 x 2000mm'],
+  ['SG8224','7mm Diamond Grille 830 x 2450mm'],
+  ['SG9220','7mm Diamond Grille 920 x 2050mm'],
+  ['SG9224','7mm Diamond Grille 920 x 2450mm'],
+  ['SG9230','7mm Diamond Grille 920 x 3000mm'],
+  ['SG9260','7mm Diamond Grille 920 x 6250mm'],
+  ['SH003','7mm Joining Mould Channel'],
+  ['SH004','Joiner Without Spline'],
+  ['SH005','33mm Fly Door Mid Rail'],
+  ['SQF9090T20','Post/Fluted 90 x 90 x 2mm'],
+  ['VT004','4 Way Tilt Rod'],
+  ['VT009','Vertical Blinds'],
+  ['VT010','Plain Blind Track'],
+  ['VT024','Bottom Bar 10Um Clear B40'],
+  ['VT039','38mm Keyway Tube'],
+  ['WF001','11mm Security Window Frame'],
+  ['WF002','9mm Security Window Frame'],
+  ['WF004','11mm Security Window Frame With Fixing Leg'],
+  ['1050','Austral Double Flushbolt For Security Doors'],
+  ['1850','Fly Screen Springs 100/Bag'],
+  ['1853','Panic Break Out Handle Spring 20/Bag'],
+  ['1902-M','Frame Packers 5mm x 90mm 100/Bag'],
+  ['1903-M','Frame Packers 10mm x 90mm 100/Bag'],
+  ['1907','Aluminium Frame Packers 2mm 100/Bag'],
+  ['1910','Setting Blocks 3mm Thick 1000/Bag'],
+  ['1911','Setting Blocks 5mm Thick 1000/Bag'],
+  ['1912','Setting Blocks 10mm Thick 500/Bag'],
+  ['1930','End Cap To Suit Subsills 50 Pairs/Bag'],
+  ['1950-AMN','Touch Up Paint 150g Anodic Matt Natural'],
+  ['1950-BL','Touch Up Paint 150g Satin Black'],
+  ['1950-DO','Touch Up Paint 150g Deep Ocean'],
+  ['1950-HB','Touch Up Paint 150g Hamersley Brown'],
+  ['1950-MB','Touch Up Paint 150g Matt Black'],
+  ['1950-MM','Touch Up Paint 150g Monument'],
+  ['1950-NPBK','Touch Up Paint 150g Paper Bark'],
+  ['1950-PR','Touch Up Paint 150g Primrose'],
+  ['1950-SB','Touch Up Paint 150g Stone Beige'],
+  ['1950-SM','Touch Up Paint 150g Surfmist'],
+  ['1950-USG','Touch Up Paint 150g Ultra Silver Gloss'],
+  ['1950-WG','Touch Up Paint 150g Woodland Grey'],
+  ['1950-WH','Touch Up Paint 150g White'],
+  ['1960','Lanotec General Purpose Liquid Lanolin 300gm'],
+  ['1961','Lanotec Cleaner/Degreaser 300gm Citra Force'],
+  ['1966-BX','ScreenGuard PowaWash Concentrate 100ml Box of 24'],
+  ['1966-SGL','ScreenGuard PowaWash Concentrate 100ml Single'],
+  ['2000','Cyclone 610mm x 30m Gauze Stainless Steel Blk'],
+  ['2001','Cyclone 760mm x 30m Gauze Stainless Steel Blk'],
+  ['2002','Cyclone 810mm x 30m Gauze Stainless Steel Blk'],
+  ['2003','Cyclone 910mm x 30m Gauze Stainless Steel Blk'],
+  ['2005','Cyclone 1220mm x 30m Gauze Stainless Steel Blk'],
+  ['2005-C','Cyclone 1220mm x 30m Gauze Stainless Steel Blk'],
+  ['2006-C','Cyclone 1520mm x 30m Gauze Stainless Steel Blk'],
+  ['2030','Fibreglass Mesh 610mm x 50m Charcoal'],
+  ['2031','Fibreglass Mesh 760mm x 50m Charcoal'],
+  ['2032','Fibreglass Mesh 810mm x 50m Charcoal'],
+  ['2033','Fibreglass Mesh 910mm x 50m Charcoal'],
+  ['2034','Fibreglass Mesh 1070mm x 50m Charcoal'],
+  ['2035','Fibreglass Mesh 1220mm x 50m Charcoal'],
+  ['2036','Fibreglass Mesh 1520mm x 50m Charcoal'],
+  ['2037','Fibreglass Mesh 1830mm x 50m Charcoal'],
+  ['2054-C','Cyclone Midge Fibreglass Miniweave 910mm x 30m'],
+  ['2056-C','Cyclone Midge Fibreglass Miniweave 1220mm x 30m'],
+  ['2060-C','Cyclone Aluminium Mesh 610mm x 30m'],
+  ['2061','Aluminium Mesh 760mm x 30m'],
+  ['2062','Aluminium Mesh 810mm x 30m'],
+  ['2063','Aluminium Mesh 910mm x 30m'],
+  ['2065','Aluminium Mesh 1220mm x 30m'],
+  ['2073-C','Cyclone Duraview Pet Petscreen 910mm x 30m'],
+  ['2075-C','Cyclone Duraview Pet Petscreen 1220mm x 30m'],
+  ['2076-C','Cyclone Duraview Pet Petscreen 1520mm x 30m'],
+  ['2077','Paw Proof Mesh 1830mm x 30m'],
+  ['2093-C','Cyclone Duraview 910 x 30mm'],
+  ['2100-3RV','Whitco Tasman MK2 Reverse 3 Point Kit'],
+  ['2100-3ST','Whitco Tasman MK2 Standard 3 Point Kit'],
+  ['2100-BL','Whitco Tasman MK2 - Black'],
+  ['2100-EXT','Whitco Extended Strike To Suit Tasman MK2'],
+  ['2103-3ST','Yale Quattro 3 Point Lock Kit'],
+  ['2103-BL','Yale Quattro Hinged Security Door Lock No Cyl Black'],
+  ['2105-3HS','Lockwood 8654 High-Sec 3 Point Lock Kit'],
+  ['2105-3PK/PBT','Lockwood 8654 3 Point Lock Kit With Straight Bolts'],
+  ['2105-3ST','Lockwood 8654 Std 3 Point Lock Kit'],
+  ['2105-BL','Lockwood 8654 Hinged Sec Door Lock - Black'],
+  ['2105-EXT','Lockwood 8654 Extra Wide Strike'],
+  ['2106-27','Lockwood 1.5mm Thick Packer Centre Lock Pack Of 50'],
+  ['2106-34','Lockwood 3mm Thick Narrow Plate Main Striker Packer Pack Of 50'],
+  ['2106-35','Lockwood 3mm Thick Auxiliary Packer Pack Of 50'],
+  ['2120-BL','Austral HD7 Hinged Door Lock No Cylinder Black'],
+  ['2131-3CH','Austral Cable ULTIMATE 3 Point High Kit'],
+  ['2131-BL','Austral Ultimate Hinged Door Lock Black'],
+  ['2141-CA','Lockwood Flat Lock Guards All Purpose Clear'],
+  ['2146-WH','Mini Push Lock White'],
+  ['2150-3ST','Whitco Leichhardt Standard 3 Point Lock Kit'],
+  ['2150-BL','Whitco Leichardt Black'],
+  ['2150-SO-LH','Whitco Leichardt Lock Snib Only Left Hand Black'],
+  ['2150-SO-RH','Whitco Leichardt Lock Snib Only Right Hand Black'],
+  ['2151-3ADJ','Austral SD7 Adjustable 3 Point Rod Kit'],
+  ['2151-3CH','Austral Cable SD7 3 Point High Kit'],
+  ['2151-3RH','Austral SD7 Rod 3 Point High Kit'],
+  ['2151-BL','Austral SD7 Sliding Door Lock Black'],
+  ['2151-POOL','Austral Cable SD7 3 Point Pool Kit'],
+  ['2151-SO-BL','Austral SD7 Sliding Door Lock Snib Only Black'],
+  ['2154-3ST','Yale Quattro Sliding Door 3 Point Lock Kit'],
+  ['2154-BL','Yale Quattro Sliding Security Door Lock Black'],
+  ['2155-3PT','Lockwood 8653 Std 3 Point Lock Kit Sliding'],
+  ['2155-BL','Lockwood 8653 Sliding Security Door Lock Black'],
+  ['2156-3CH','Austral Cable Elegance 3 Point High Kit'],
+  ['2156-3CL','Austral Elegance 3 Point Cable Low Kit'],
+  ['2156-3RH','Austral Elegance Rod 3 Point High Kit'],
+  ['2156-BL','Austral Elegance Hinged Door Lock No Cylinder Black'],
+  ['2156-EXT','Austral Wide Striker Plate For Elegance'],
+  ['2157-3ADJ','Austral Elegance Adjustable 3 Point Rod Kit'],
+  ['2158-WB','Austral Elegance PUSH2GO Hinged Door Lock White Birch'],
+  ['2200-P','Whitco 2 x 5 Pin Cylinder K/Alike 10/Bag'],
+  ['2202','Austral Pin Cylinder Key Alike Suits Ultimate Lock'],
+  ['2204','Austral Pin Cylinder Key Alike Suits SD7 Elegance Lock 60mm'],
+  ['2218-K01','Whitco 10 Disc Cylinder KEY01'],
+  ['2218-K02','Whitco 10 Disc Cylinder KEY02'],
+  ['2218-K03','Whitco 10 Disc Cylinder KEY03'],
+  ['2218-K04','Whitco 10 Disc Cylinder KEY04'],
+  ['2218-K05','Whitco 10 Disc Cylinder KEY05'],
+  ['2219','Austral Wafer Cylinder With 3 Keys & Cylinder Screw'],
+  ['2220','Whitco 2 x 5 Disc Cylinder K/Alike'],
+  ['2221','Austral Wafer Cylinder K/A Bright Chrome'],
+  ['2230','Whitco Screen Door Latch Black'],
+  ['2250-BL','Whitco Slimline Patio Bolt Black'],
+  ['2250-SP','Whitco Patio Bolt Silver'],
+  ['2251-BL','Whitco Patio Bolt Black CYL4 Cylinder'],
+  ['2255-BL','Multi Bolt Black'],
+  ['2260-BL','Whitco 2 Part Sec Door Flush Bolt Black'],
+  ['2267-BL','Whitco Servery Lock Black'],
+  ['2300-BL','Whitco Hinge Door Closer 18kg Max Black'],
+  ['2301-BL','Austral Hinge Door Closer 18kg Max Black Satin'],
+  ['2302-BL','Austral Hinge Door Closer Heavy Duty Up To 26kg Black Satin'],
+  ['2303-BL','Lockwood 403 Pneumatic Screen Door Closer 21kg Max Black'],
+  ['2372-BL','Lockwood 404 Hydraulic Screen Door Closer Up To 29kg Black'],
+  ['2375','Anthony Innovations Kwikfit Soft Closer Pack'],
+  ['2380-BL','Inventco Sliding Door Closer Black'],
+  ['2389','Magnetic Fly Door Latch'],
+  ['2390','Whitco Bass Handles Std Strike Black'],
+  ['2391','Whitco Bass Handle Snib Finger Plate Outpull'],
+  ['2392','Sliding Screen Door Flush Outer Pull Plastic Black'],
+  ['2400-BL','Security Door Hinges Black'],
+  ['2401','Lockwood 316 Stainless Steel Security Door Hinge'],
+  ['2402','Lockwood 316 Stainless Steel Security Door Hinge With Safety Prong'],
+  ['2420','Hinge Packer 1mm Aluminium'],
+  ['2449','30kg Snap Set Standard Security Door Roller'],
+  ['2450','Auzfit Security Door Roller 25kg'],
+  ['2451','Anthony Innovations 40kg Kwikfit Switch Heavy Duty Roller'],
+  ['2498','Foam Spline 4.5mm x 700m Roll'],
+  ['2499','Foam Spline 4.0mm x 870m Roll'],
+  ['2500','Foam Spline 5.0mm x 550m Roll'],
+  ['2501','Foam Spline 5.7mm x 450m Roll'],
+  ['2502','Foam Spline 6.0mm x 400m Roll'],
+  ['2503','Foam Spline 5.3mm x 500m Roll'],
+  ['2504','Spline PVC Hollow 5mm x 300m Roll'],
+  ['2506','Spline PVC Hollow 6.0mm x 300m Roll'],
+  ['2510-FIRE-R100','ScreenGuard L Seat Only 100m/Roll'],
+  ['2510-FIRE-W100','ScreenGuard Wedge Only 33 x 3m Pack'],
+  ['2520','Spline Roller Heavy Duty'],
+  ['2532','ScreenGuard Attenuation Plate 140x25mm Black Anodised'],
+  ['2541','ScreenGuard Extreme Co-Ex Wedge & Insulator'],
+  ['2590','Fringe Pile 11mm 400m Roll Black'],
+  ['2600','Fringe Pile 13mm 350m Roll Black'],
+  ['2610','Fringe Pile 16mm 300m Roll Black'],
+  ['2620','Fringe Pile 28mm x 150m Black'],
+  ['2650','Light Duty Sec Door Corner Stake Aluminium'],
+  ['2651','Heavy Duty Sec Door Corner Stake Aluminium'],
+  ['2652','Security Door Corner Stake Nylon'],
+  ['2653','ScreenGuard Access Corner Stake To Suit AU03005'],
+  ['2655','ScreenGuard Aluminium Corner Stake To Suit AU01001'],
+  ['2656','ScreenGuard Aluminium Corner Stake To Suit AU01002/1006/1007/3001'],
+  ['2657','ScreenGuard Aluminium Corner Stake 9mm Suits AU01003'],
+  ['2659','ScreenGuard Nylon Corner Stake To Suit AU01001'],
+  ['2660','Window Corner Stake Suits WF001'],
+  ['2662','Window Corner Stake Suits WF002'],
+  ['2663','Nylon Corner Stake To Suit WF001'],
+  ['2673','Flyframe Corner Stake Plastic Suits HFF181 9mm Flyscreen'],
+  ['2673-U','Undersized Corner Stake To Suit AU01001'],
+  ['2675','Corner Stake Suits DT3020'],
+  ['2679','ScreenGuard Corner Stake To Suit SG Extreme Window Frame'],
+  ['2680','Flyframe Corner Stake Plastic Suits HFF180 11mm Flyscreen'],
+  ['2682','Screen Retainer Clip Black 50/Pack'],
+  ['2685','Door Top Guide Nylon Suit DF001/003/006'],
+  ['2686','100mm Guide Button For Servery Track Canoe Clip 100/Bag'],
+  ['2691','Build Out Corner Stake Suits DJ3250/3260'],
+  ['2694','Pelmet Bracket Suits VT007 Bag of 50'],
+  ['2700-BL','J Bead 2.75m Black'],
+  ['2711-BL','Stop Bead 16mm x 13mm x 2.1m Black'],
+  ['2711-BR','Stop Bead 16mm x 13mm x 2.1m Brown'],
+  ['2711-PR','Stop Bead 16mm x 13mm x 2.1m Primrose'],
+  ['2711-WH','Stop Bead 16mm x 13mm x 2.1m White'],
+  ['2713-BL','Stop Bead 16mm x 13mm x 5.1m Black'],
+  ['2713-BR','Stop Bead 16mm x 13mm x 5.1m Brown'],
+  ['2713-PR','Stop Bead 16mm x 13mm x 5.1m Primrose'],
+  ['2713-SB','Stop Bead 16mm x 13mm x 5.1m Stone Beige'],
+  ['2713-WH','Stop Bead 16mm x 13mm x 5.1m White'],
+  ['2721-BL','Stop Bead 16mm x 13mm x 3.0m Black'],
+  ['2721-PR','Stop Bead 16mm x 13mm x 3.0m Primrose'],
+  ['2721-SB','Stop Bead 16mm x 13mm x 3.0m Stone Beige'],
+  ['2721-WH','Stop Bead 16mm x 13mm x 3.0m White'],
+  ['2800','D Pulls PVC 11mm Bag 100'],
+  ['2800-R','Round D Pulls PVC 11mm Bag 100'],
+  ['2801','D Pulls PVC 9mm Bag 100'],
+  ['2810-BL','Swivel Clips Black 1.6mm Bag 200'],
+  ['2810-CA','Swivel Clips Clear 1.6mm Bag 200'],
+  ['2811-BL','Swivel Clips Black 11mm 200pc/Bag'],
+  ['2811-CA','Swivel Clips Clear 11mm'],
+  ['2820','Spreader Bar Clips Suits HFF184'],
+  ['2831-BL','Premium Flyscreen Port-Phoenix Access Window Black'],
+  ['2835-BL','Pet Door Small 240 x 190mm Black'],
+  ['2835-BR','Pet Door Small 240 x 190mm Brown'],
+  ['2835-GLASS','Pet Door Small Glass 240 x 190mm Clear'],
+  ['2835-PR','Pet Door Small 240 x 190mm Primrose'],
+  ['2835-WH','Pet Door Small 240 x 190mm White'],
+  ['2836','Small Pet Door L Bracket Suit 2835'],
+  ['2838-BL','Pet Door Medium 305 x 225mm Black'],
+  ['2838-PR','Pet Door Medium 305 x 225mm Primrose'],
+  ['2838-SB','Pet Door Medium 305 x 225mm Stone Beige'],
+  ['2838-WH','Pet Door Medium 305 x 225mm White'],
+  ['2840-BL','Pet Door Large 400 x 260mm Black'],
+  ['2840-PR','Pet Door Large 400 x 260mm Primrose'],
+  ['2840-SB','Pet Door Large 400 x 260mm Stone Beige'],
+  ['2840-WH','Pet Door Large 400 x 260mm White'],
+  ['2841-BL','Hopper Hatch Black'],
+  ['2842','Large Pet Door L Bracket Suit 2840'],
+  ['2843','Pet Door Flexible Flap Small'],
+  ['2844','Pet Door Flexible Flap Medium'],
+  ['2845','Pet Door Flexible Flap Large'],
+  ['2846','Flyscreen D-Pull And Plunger Bag 100'],
+  ['2847','Double Hung Tab Bag 100'],
+  ['2853','Plunger Pin Plastic 100/Bag Black'],
+  ['2862','Security Door Top Guide To Suit 23.5mm'],
+  ['2863','Security Door Top Guide To Suit 21.2mm Grey'],
+  ['2901','Bench Mat 1.2m Width Per Mtr'],
+  ['3110','Corner Stake For Gates & Shutters'],
+  ['3113','Easy Picket Top Cap'],
+  ['3114','Easy Picket Spacer Block'],
+  ['3218','End Cap Picket Suit PIC003/PIC014'],
+  ['3219','Corner Stake To Suit PIC009'],
+  ['3222','Square Top Cap Suits PIC009/PIC010/PIC011'],
+  ['3225','End Cap To Suit 150x50x3mm Hollow Tube'],
+  ['3259','HarbourView Foam Tape Single Sided Black'],
+  ['3301','Screenfold Pivot Assembly Set'],
+  ['3302','Screenfold Bottom Guide'],
+  ['3303','Screenfold Hanger'],
+  ['3304','Screenfold Bi-Fold Barrel Bolt'],
+  ['3305','Screenfold Hinge'],
+  ['3306','Screenfold Handle Hinge'],
+  ['3307','Screenfold Hanger'],
+  ['3308','Screenfold Pivot'],
+  ['3310','Screenfold Guide'],
+  ['3313','Screenfold Intermediate Hanger'],
+  ['3314','Maya Door Bolt L.140MM Black'],
+  ['3315','Maya Door Bolt L.450MM Black'],
+  ['3316','Maya Door Bolt L.600MM Black'],
+  ['4100-BL','Austral Forge Security Lock Hinged Projection Bolt Black'],
+  ['4150-BL','Austral Forge Sliding Security Door Lock Black'],
+  ['4300-BL','Forge Hinged 2 Point 30mm Lock With Snib Kit Black'],
+  ['4320-BL','Forge Hinged 4 Point 30mm Lock With Snib Kit Black'],
+  ['4320-WH','Forge Hinged 4 Point 30mm Lock With Snib Kit White'],
+  ['4710-SS','HarbourView Verta Bifold Single Access Non-Locking Stainless Steel'],
+  ['4730-SS','HarbourView Verta Bifold Single Access Locking Stainless Steel'],
+  ['4F-DB-PF050','Driver Bit Pentaforce 50mm'],
+  ['4F-DB-PF150','Driver Bit Pentaforce 150mm'],
+  ['4F-DB-RESY25','Driver Bit 25mm Resytork'],
+  ['4F-DB225P','Driver Bit #2 x 25mm Phillips'],
+  ['4F-DB250P','Driver Bit #2 x 50mm Phillips'],
+  ['4F-SRC706','Hand Riveter Up To 4.8mm PRO-706'],
+  ['4R-C64AS-MF','Rivet AS6-4 Countersunk Head Mill Finish 500/Box'],
+  ['4R-D42AS-BL','Rivet AS4-2 Dome Head Black 1000/Box'],
+  ['4R-D42AS-MF','Rivet AS4-2 Dome Head Mill Finish 1000/Box'],
+  ['4R-D42AS-WH','Rivet AS4-2 Dome Head White 1000/Box'],
+  ['4R-D43AS-MF','Rivet AS4-3 Dome Head Mill Finish 1000/Box'],
+  ['4R-D44AS-BL','Rivet AS4-4 Dome Head Black 1000/Box'],
+  ['4R-D44AS-MF','Rivet AS4-4 Dome Head Mill Finish 1000/Box'],
+  ['4R-D44AS-PR','Rivet AS4-4 Dome Head Primrose 1000/Box'],
+  ['4R-D44AS-WH','Rivet AS4-4 Dome Head White 1000/Box'],
+  ['4R-D54AS-BL','Rivet AS5-4 Dome Head Black 1000/Box'],
+  ['4R-D54AS-MF','Rivet AS5-4 Dome Head Mill Finish 1000/Box'],
+  ['4R-D54AS-WH','Rivet AS5-4 Dome Head White 1000/Box'],
+  ['4R-D64AS-MF','Rivet AS6-4 Dome Head Mill Finish 500/Box'],
+  ['4S-BH0834NP-BL','Screw Black Button Head 8GX3/4" 1000/Box'],
+  ['4S-BH0834NP-GAL','Screw Gal Button Head 8GX3/4" 1000/Box'],
+  ['4S-CH0634ST-SS','Screw S/S Countersunk Head 6GX3/4" 1000/Box'],
+  ['4S-CH0638ST-SS','Screw S/S Countersunk Head 6GX3/8" 1000/Box'],
+  ['4S-CH081ST-SS','Screw S/S Countersunk Head 8GX1" 1000/Box'],
+  ['4S-CH0825TH-ZI','Screw Zinc Countersunk Head 8GX25mm 1000/Box'],
+  ['4S-CH1012UST-SS','Screw S/S Countersunk Head 10GX1/2" Undercut 1000/Box'],
+  ['4S-FH1022SD-GAL','Screw Gal Flat Head 10GX22mm Self Drill 1000/Box'],
+  ['4S-PFPH1809SD-G','ScreenGuard Screw Pentaforce Self Drill 8-18 x 9.5 GAL 1000/Box'],
+  ['4S-PFPH1812SD-G','ScreenGuard Screw Pentaforce Self Drill 8-18 x 12.5 GAL 1000/Box'],
+  ['4S-PFPH1825SD-G','ScreenGuard Screw Pentaforce Pan Head 8-18 x 25 GAL 1000/Box'],
+  ['4S-PH06112ST-SS','Screw S/S Pan Head 6GX1.5" 1000/Box'],
+  ['4S-PH0612ST-YZ','Screw Yellow Zinc Pan Head 6GX1/2" Self Drill 1000/Box'],
+  ['4S-PH061ST-SS','Screw S/S Pan Head 6GX1" Self Tap 1000/Box'],
+  ['4S-PH081ST-SS','Screw S/S Pan Head 8GX1" 200/Box'],
+  ['4S-PH082ST-SS','Screw S/S Pan Head 8GX2" 200/Box'],
+  ['4S-PH101ST-SS','Screw S/S Pan Head 10GX1" 1000/Box'],
+  ['4S-PH103ST-SS','Screw S/S Pan Head 10GX3" 250/Box'],
+  ['4S-RTB10112-YZ','Screw Resytork Yellow Zinc Button Head 10GX1-1/2 Type 17 1000/Box'],
+  ['9956S','Legge Passage Set Kit Stainless Steel No Cylinder 30mm Backset'],
+  ['O-1472','Foam Seal Suits 101.6mm Center Glazed 1050pcs/Roll'],
+  ['PC5050','Pre-Drilled Concealed Post Connector 20 Bag'],
+  ['SE9-4025','Patio Enclosure Brackets 40 Bag Suit SE001/002'],
+  ['AN1212','Angle 12 x 12 x 1.6mm'],
+  ['AN1225','Angle 12 x 25 x 1.6mm'],
+  ['AN1240','Angle 12 x 40 x 1.6mm'],
+  ['AN2012','Angle 20 x 12 x 1.6mm'],
+  ['AN2020','Angle 20 x 20 x 1.6mm'],
+  ['AN2025','Angle 20 x 25 x 1.6mm'],
+  ['AN2032','Angle 20 x 32 x 1.6mm'],
+  ['AN2040','Angle 20 x 40 x 1.6mm'],
+  ['AN2525','Angle 25 x 25 x 1.6mm'],
+  ['AN2532','Angle 25 x 32 x 1.6mm'],
+  ['AN2540','Angle 25 x 40 x 1.6mm'],
+  ['AN2550','Angle 25 x 50 x 1.6mm'],
+  ['AN2570','Angle 25 x 70 x 1.6mm'],
+  ['AN4040','Angle 40 x 40 x 1.6mm'],
+  ['AN4070','Angle 40 x 70 x 1.5mm'],
+  ['AN5050','Angle 50 x 50 x 1.6mm'],
+  ['HAN2025','Angle 20 x 25 x 3mm'],
+  ['HAN2032','Angle 20 x 32 x 3mm'],
+  ['HAN2525','Angle 25 x 25 x 3mm'],
+  ['HAN2540','Angle 25 x 40 x 3mm'],
+  ['HAN2550','Angle 25 x 50 x 3mm'],
+  ['HAN2570','Angle 25 x 70 x 3mm'],
+  ['HAN3232','Angle 32 x 32 x 3mm'],
+  ['HAN4040','Angle 40 x 40 x 3mm'],
+  ['HAN5006','Angle 50 x 50 x 6mm'],
+  ['HAN50100','Angle 50 x 100 x 3mm'],
+  ['HAN5050','Angle 50 x 50 x 3mm'],
+  ['CH2020T16','Channel 20 x 20 x 1.6mm'],
+  ['CH3218','Glazing Channel 25 x 25 x 3mm'],
+  ['CH3232','Glazing Channel 32 x 32 x 3mm'],
+  ['CH3245','Glazing Channel 32 x 45 x 3mm'],
+  ['CH4025T30','Channel 40 x 25 x 3mm'],
+  ['FB10016','Flat Bar 100 x 1.6mm'],
+  ['FB10030','Flat Bar 100 x 3mm'],
+  ['FB1225','Flat Bar 12 x 2.5mm'],
+  ['FB2030','Flat Bar 20 x 3mm'],
+  ['FB2516','Flat Bar 25 x 1.6mm'],
+  ['FB2530','Flat Bar 25 x 3mm'],
+  ['FB3230','Flat Bar 32 x 3mm'],
+  ['FB4016','Flat Bar 40 x 1.6mm'],
+  ['FB4030','Flat Bar 40 x 3mm'],
+  ['FB4060','Flat Bar 40 x 6mm'],
+  ['FB5030','Flat Bar 50 x 3mm'],
+  ['FB5060','Flat Bar 50 x 6mm'],
+  ['FB6030','Flat Bar 60 x 3mm'],
+  ['FB8030','Flat Bar 80 x 3mm'],
+  ['RD16R12','Round Tube 16 x 1.2mm'],
+  ['RD50R16','Round Tube 50 x 1.6mm'],
+  ['SQ1919T16','Square Tube 19 x 19 x 1.6mm'],
+  ['SQ2525T12','Square Tube 25 x 25 x 1.2mm'],
+  ['SQ2525T16','Square Tube 25 x 25 x 1.6mm'],
+  ['SQ2540T25','Rectangular Tube 40 x 25 x 2.5mm'],
+  ['SQ2550T30','Square Tube 25 x 50 x 3mm'],
+  ['SQ4040T16','Square Tube 40 x 40 x 1.6mm'],
+  ['SQ4040T30','Square Tube 40 x 40 x 3mm'],
+  ['SQ4080T30','Rectangular Tube 40 x 80 x 3mm'],
+  ['SQ5050T16','Square Tube 50 x 50 x 1.6mm'],
+  ['SQ5050T25','Square Tube 50 x 50 x 2.5mm'],
+  ['SQ5050T30','Square Tube 50 x 50 x 3mm'],
+  ['SQ5080T30','Rectangular Tube 50 x 80 x 3mm'],
+  ['SQ10050T16','Square Tube 100 x 50 x 1.6mm'],
+  ['SQ10050T30','Rectangular Tube 100 x 50 x 3mm'],
+  ['SQ15050T30','Rectangular Tube 150 x 50 x 3mm'],
+  ['SQ20050T30','Rectangular Tube 200 x 50 x 3mm'],
+  ['SQ762254T24','Rectangular Tube 76.2 x 25.4 x 2.4mm'],
+  ['SR1919T12','Square Tube Radius Edge 19 x 1.2mm'],
+  ['SR2538T15','Rectangular Tube Radius Edge 38 x 25 x 1.5mm'],
+  ['SR5050T20','Square Tube Radius Edge 50 x 2mm'],
+  ['SR5050T30','Square Tube Radius Edge 50 x 3mm'],
+];
+
+function searchCatalogue(term) {
+  if (!term) return [];
+  const t = term.toUpperCase();
+  const exact = [], prefix = [], desc = [];
+  for (const [code, description] of DARLEY_CATALOGUE) {
+    const cu = code.toUpperCase();
+    const du = description.toUpperCase();
+    if (cu === t) exact.push([code, description]);
+    else if (cu.startsWith(t)) prefix.push([code, description]);
+    else if (cu.includes(t) || du.includes(t)) desc.push([code, description]);
+  }
+  return [...exact, ...prefix, ...desc].slice(0, 12);
+}
+
+let _acDropdown = null;
+
+function initCodeInput(input) {
+  input.addEventListener('input', () => showCodeDropdown(input));
+  input.addEventListener('keydown', e => {
+    if (!_acDropdown) return;
+    const items = _acDropdown.querySelectorAll('.oi-ac-item');
+    const active = _acDropdown.querySelector('.oi-ac-item.active');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const next = active ? active.nextElementSibling : items[0];
+      if (next) { active?.classList.remove('active'); next.classList.add('active'); }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prev = active ? active.previousElementSibling : items[items.length - 1];
+      if (prev) { active?.classList.remove('active'); prev.classList.add('active'); }
+    } else if (e.key === 'Enter' && active) {
+      e.preventDefault();
+      active.click();
+    } else if (e.key === 'Escape') {
+      closeCodeDropdown();
+    }
+  });
+  input.addEventListener('blur', () => setTimeout(closeCodeDropdown, 150));
+}
+
+function showCodeDropdown(input) {
+  closeCodeDropdown();
+  const val = input.value.trim();
+  if (!val) return;
+  const matches = searchCatalogue(val);
+  if (!matches.length) return;
+
+  const drop = document.createElement('div');
+  drop.className = 'oi-ac-dropdown';
+  _acDropdown = drop;
+
+  for (const [code, description] of matches) {
+    const item = document.createElement('div');
+    item.className = 'oi-ac-item';
+    item.innerHTML = `<span class="oi-ac-code">${esc(code)}</span><span class="oi-ac-desc">${esc(description)}</span>`;
+    item.addEventListener('mousedown', e => {
+      e.preventDefault();
+      const tr = input.closest('tr');
+      input.value = code;
+      const descInput = tr.querySelector('.oi-desc');
+      if (descInput && !descInput.value) descInput.value = description;
+      closeCodeDropdown();
+      descInput?.focus();
+    });
+    drop.appendChild(item);
+  }
+
+  const rect = input.getBoundingClientRect();
+  drop.style.top = (rect.bottom + window.scrollY) + 'px';
+  drop.style.left = rect.left + 'px';
+  drop.style.width = Math.max(rect.width, 340) + 'px';
+  document.body.appendChild(drop);
+}
+
+function closeCodeDropdown() {
+  if (_acDropdown) { _acDropdown.remove(); _acDropdown = null; }
+}
+
 // --- Orders ---
 let allOrders = [];
 let ordersFilter = 'pending';
@@ -998,14 +1577,16 @@ function showAddItemModal() {
   document.getElementById('order-job-input').value = '';
   document.getElementById('order-supplier-input').value = '';
   document.getElementById('order-job-hint').textContent = '';
-  document.getElementById('order-items-tbody').innerHTML = `
+  const tbody = document.getElementById('order-items-tbody');
+  tbody.innerHTML = `
     <tr>
-      <td><input type="text" class="orders-form-input oi-code" placeholder="AN2550"></td>
+      <td><input type="text" class="orders-form-input oi-code" placeholder="AN2550" autocomplete="off"></td>
       <td><input type="text" class="orders-form-input oi-desc" placeholder="Description"></td>
       <td><input type="text" class="orders-form-input oi-colour" placeholder="Black"></td>
       <td><input type="number" class="orders-form-input oi-qty" value="1" min="1"></td>
       <td><button class="orders-row-remove" onclick="removeOrderRow(this)">×</button></td>
     </tr>`;
+  initCodeInput(tbody.querySelector('.oi-code'));
   document.getElementById('orders-modal-backdrop').style.display = 'flex';
   setTimeout(() => document.getElementById('order-job-input').focus(), 50);
 }
@@ -1014,13 +1595,15 @@ function addOrderRow() {
   const tbody = document.getElementById('order-items-tbody');
   const tr = document.createElement('tr');
   tr.innerHTML = `
-    <td><input type="text" class="orders-form-input oi-code" placeholder="AN2550"></td>
+    <td><input type="text" class="orders-form-input oi-code" placeholder="AN2550" autocomplete="off"></td>
     <td><input type="text" class="orders-form-input oi-desc" placeholder="Description"></td>
     <td><input type="text" class="orders-form-input oi-colour" placeholder="Black"></td>
     <td><input type="number" class="orders-form-input oi-qty" value="1" min="1"></td>
     <td><button class="orders-row-remove" onclick="removeOrderRow(this)">×</button></td>`;
   tbody.appendChild(tr);
-  tr.querySelector('.oi-code').focus();
+  const codeInput = tr.querySelector('.oi-code');
+  initCodeInput(codeInput);
+  codeInput.focus();
 }
 
 function removeOrderRow(btn) {
