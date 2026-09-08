@@ -1754,24 +1754,40 @@ function exportEmail() {
     bySupplier.get(s).push(item);
   }
 
-  let body = '';
-  let first = true;
+  let plainParts = [];
+  let htmlParts = [];
+
   for (const [, items] of bySupplier) {
-    if (!first) body += '\n\n---\n\n';
-    first = false;
-    body += `Hi,\n\nCan we please order the following, to be delivered to: ${DELIVERY}.\n\nPlease let us know if any items are on back order and an approx. lead time.\n`;
     const pad = (s, n) => String(s).padEnd(n);
-    body += `\n${pad('Code',14)}${pad('Description',42)}${pad('Colour',22)}Quantity\n`;
-    body += `${'-'.repeat(14)}${'-'.repeat(42)}${'-'.repeat(22)}${'-'.repeat(8)}\n`;
+    let plain = `Hi,\n\nCan we please order the following, to be delivered to: ${DELIVERY}.\n\nPlease let us know if any items are on back order and an approx. lead time.\n`;
+    plain += `\n${pad('Code',14)}${pad('Description',42)}${pad('Colour',22)}Quantity\n`;
+    plain += `${'-'.repeat(14)}${'-'.repeat(42)}${'-'.repeat(22)}${'-'.repeat(8)}\n`;
     for (const item of items) {
-      body += `${pad(item.code||'',14)}${pad(item.description,42)}${pad(item.colour||'',22)}${item.qty||1}\n`;
+      plain += `${pad(item.code||'',14)}${pad(item.description,42)}${pad(item.colour||'',22)}${item.qty||1}\n`;
     }
-    body += `\nThanks,\nSerene Security`;
+    plain += `\nThanks,\nSerene Security`;
+    plainParts.push(plain);
+
+    let html = `<p>Hi,</p><p>Can we please order the following, to be delivered to: ${DELIVERY}.</p><p>Please let us know if any items are on back order and an approx. lead time.</p>`;
+    html += `<table border="0" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;">`;
+    html += `<thead><tr style="border-bottom:2px solid #000;">`;
+    html += `<th style="text-align:left;padding-right:24px;">Code</th><th style="text-align:left;padding-right:24px;">Description</th><th style="text-align:left;padding-right:24px;">Colour</th><th style="text-align:left;">Quantity</th>`;
+    html += `</tr></thead><tbody>`;
+    for (const item of items) {
+      html += `<tr><td style="padding-right:24px;">${esc(item.code||'')}</td><td style="padding-right:24px;">${esc(item.description)}</td><td style="padding-right:24px;">${esc(item.colour||'')}</td><td>${item.qty||1}</td></tr>`;
+    }
+    html += `</tbody></table><p>Thanks,<br>Serene Security</p>`;
+    htmlParts.push(html);
   }
 
+  const fullPlain = plainParts.join('\n\n---\n\n');
+  const fullHtml = htmlParts.join('<hr>');
+
   document.getElementById('export-ref').textContent = ref;
-  document.getElementById('export-body').value = body;
+  document.getElementById('export-body').value = fullPlain;
   document.getElementById('export-modal-backdrop').style.display = 'flex';
+  // Store html for clipboard
+  document.getElementById('export-body').dataset.html = fullHtml;
 }
 
 function closeExportModal(e) {
@@ -1781,8 +1797,16 @@ function closeExportModal(e) {
 
 async function copyExportEmail() {
   const text = document.getElementById('export-body').value;
+  const html = document.getElementById('export-body').dataset.html || '';
   try {
-    await navigator.clipboard.writeText(text);
+    if (html && window.ClipboardItem) {
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([text], { type: 'text/plain' }),
+      })]);
+    } else {
+      await navigator.clipboard.writeText(text);
+    }
     showToast('Copied to clipboard');
   } catch {
     document.getElementById('export-body').select();
