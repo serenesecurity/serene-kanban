@@ -1756,9 +1756,11 @@ function exportEmail() {
     if (!first) body += '\n\n---\n\n';
     first = false;
     body += `Hi,\n\nCan we please order the following, to be delivered to: ${DELIVERY}.\n\nPlease let us know if any items are on back order and an approx. lead time.\n`;
-    body += `\nCode\tDescription\tColour\tQuantity\n`;
+    const pad = (s, n) => String(s).padEnd(n);
+    body += `\n${pad('Code',14)}${pad('Description',42)}${pad('Colour',22)}Quantity\n`;
+    body += `${'-'.repeat(14)}${'-'.repeat(42)}${'-'.repeat(22)}${'-'.repeat(8)}\n`;
     for (const item of items) {
-      body += `${item.code || ''}\t${item.description}\t${item.colour || ''}\t${item.qty || 1}\n`;
+      body += `${pad(item.code||'',14)}${pad(item.description,42)}${pad(item.colour||'',22)}${item.qty||1}\n`;
     }
     body += `\nThanks,\nSerene Security`;
   }
