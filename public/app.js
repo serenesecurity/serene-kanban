@@ -1508,10 +1508,13 @@ function renderOrders() {
     if (item.orderedDate && item.orderedDate > g.latestOrderedDate) g.latestOrderedDate = item.orderedDate;
   }
 
-  // Sort ordered tab by most recently ordered first
+  // Sort ordered tab: most recently ordered first, then by job number ascending within same date
   if (ordersFilter === 'ordered') {
-    [...byJob.entries()].sort((a, b) => b[1].latestOrderedDate.localeCompare(a[1].latestOrderedDate))
-      .forEach(([k, v]) => { byJob.delete(k); byJob.set(k, v); });
+    [...byJob.entries()].sort((a, b) => {
+      const dateDiff = b[1].latestOrderedDate.localeCompare(a[1].latestOrderedDate);
+      if (dateDiff !== 0) return dateDiff;
+      return parseInt(a[1].jobId) - parseInt(b[1].jobId);
+    }).forEach(([k, v]) => { byJob.delete(k); byJob.set(k, v); });
   }
 
   let html = '<div class="orders-topbar">';
