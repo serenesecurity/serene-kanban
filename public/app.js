@@ -1502,8 +1502,16 @@ function renderOrders() {
   // Group by jobId
   const byJob = new Map();
   for (const item of items) {
-    if (!byJob.has(item.jobId)) byJob.set(item.jobId, { jobId: item.jobId, clientName: item.clientName, items: [] });
-    byJob.get(item.jobId).items.push(item);
+    if (!byJob.has(item.jobId)) byJob.set(item.jobId, { jobId: item.jobId, clientName: item.clientName, items: [], latestOrderedDate: item.orderedDate || '' });
+    const g = byJob.get(item.jobId);
+    g.items.push(item);
+    if (item.orderedDate && item.orderedDate > g.latestOrderedDate) g.latestOrderedDate = item.orderedDate;
+  }
+
+  // Sort ordered tab by most recently ordered first
+  if (ordersFilter === 'ordered') {
+    [...byJob.entries()].sort((a, b) => b[1].latestOrderedDate.localeCompare(a[1].latestOrderedDate))
+      .forEach(([k, v]) => { byJob.delete(k); byJob.set(k, v); });
   }
 
   let html = '<div class="orders-topbar">';
