@@ -19,15 +19,15 @@
         <button class="view-btn active" data-view="schedule" onclick="setView('schedule')">Schedule</button>
         <button class="view-btn" data-view="orders" onclick="setView('orders')">Orders</button>
       </div>
-      <div class="filter-group">
+      <div class="filter-group" style="display:none">
         <button class="filter-btn" data-filter="all" onclick="setFilter('all')">All</button>
         <button class="filter-btn" data-filter="Quote" onclick="setFilter('Quote')">Quotes</button>
         <button class="filter-btn active" data-filter="Work Order" onclick="setFilter('Work Order')">Work Orders</button>
       </div>
-      <input type="text" id="search" placeholder="Search jobs…" autocomplete="off">
+      <input type="text" id="search" placeholder="Search jobs…" autocomplete="off" style="display:none">
       <span id="view-count" class="job-count"></span>
       <span id="job-count" class="job-count"></span>
-      <button id="sync-btn" onclick="handleSync()">Sync</button>
+      <button id="sync-btn" onclick="handleSync()" style="display:none">Sync</button>
     </div>
   </header>
 
