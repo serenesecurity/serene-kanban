@@ -756,7 +756,6 @@ function renderScheduler(data) {
     <th>Days</th>
     <th>Ready Window</th>
     <th>Deposit</th>
-    <th class="sched-th-right">Job Total</th>
   </tr></thead><tbody>`;
 
   let lastStatus = '';
@@ -804,7 +803,6 @@ function renderScheduler(data) {
       <td>${daysStr}${progressBar}</td>
       <td>${estReadyStr}</td>
       <td>${depositStr}</td>
-      <td class="sched-cell-right">${amtStr}</td>
     </tr>`;
   }
 
