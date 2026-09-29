@@ -813,16 +813,14 @@ function renderScheduler(data) {
     html += `<div class="sched-nodeposit-section">`;
     html += `<div class="sched-nodeposit-header">No Deposit — ${noDepositItems.length} Work Order${noDepositItems.length > 1 ? 's' : ''} without deposit collected</div>`;
     html += `<div class="sched-table-wrap"><table class="sched-table"><thead><tr>
-      <th>Job</th><th>Client</th><th>Suburb</th><th>Queue</th><th class="sched-th-right">Job Total</th>
+      <th>Job</th><th>Client</th><th>Suburb</th><th>Queue</th>
     </tr></thead><tbody>`;
     for (const j of noDepositItems) {
-      const amtStr = j.amount > 0 ? `$${j.amount.toLocaleString('en-AU', { minimumFractionDigits: 0 })}` : '';
       html += `<tr class="sched-row sched-nodeposit-row">
         <td class="sched-cell-id">${esc(j.jobId)}</td>
         <td>${esc(j.client)}</td>
         <td>${esc(j.suburb || '')}</td>
         <td>${esc(j.queue || '')}</td>
-        <td class="sched-cell-right">${amtStr}</td>
       </tr>`;
     }
     html += `</tbody></table></div></div>`;
