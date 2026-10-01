@@ -1533,6 +1533,10 @@ function renderOrders() {
   html += `<button class="orders-filter-btn ${ordersFilter === 'pending' ? 'active' : ''}" onclick="setOrdersFilter('pending')">Pending <span class="orders-filter-count">${pending.length}</span></button>`;
   html += `<button class="orders-filter-btn ${ordersFilter === 'ordered' ? 'active' : ''}" onclick="setOrdersFilter('ordered')">Ordered <span class="orders-filter-count">${ordered.length}</span></button>`;
   html += '</div>';
+  html += `<input type="text" id="orders-search" placeholder="Search job #, code or description…" autocomplete="off" value="${esc(ordersSearchQuery)}"
+    oninput="ordersSearchQuery=this.value.toLowerCase().trim();renderOrders();"
+    style="flex:1;min-width:0;border:1px solid #334155;border-radius:8px;padding:6px 12px;font-size:.82rem;background:#1e293b;color:#e2e8f0;outline:none;"
+    onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#334155'">`;
   html += '<div class="orders-topbar-actions">';
   if (ordersFilter === 'pending' && pending.length > 0) {
     html += `<button class="orders-btn orders-btn-export" onclick="exportEmail()">Export Email</button>`;
@@ -1611,7 +1615,12 @@ function renderOrders() {
     html += '</div>';
   }
 
+  const prevActive = document.activeElement?.id;
   body.innerHTML = html;
+  if (prevActive === 'orders-search') {
+    const el = document.getElementById('orders-search');
+    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  }
 }
 
 function showAddItemModal() {
