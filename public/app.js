@@ -1470,6 +1470,7 @@ function closeCodeDropdown() {
 // --- Orders ---
 let allOrders = [];
 let ordersFilter = 'pending';
+let ordersSearchQuery = '';
 
 async function loadOrders() {
   const body = document.getElementById('orders-body');
@@ -1485,7 +1486,21 @@ async function loadOrders() {
 
 function setOrdersFilter(f) {
   ordersFilter = f;
+  ordersSearchQuery = '';
+  const el = document.getElementById('orders-search');
+  if (el) el.value = '';
   renderOrders();
+}
+
+function toggleOrdersGroup(jobId) {
+  const el = document.getElementById('orders-group-' + jobId);
+  if (!el) return;
+  const isCollapsed = el.dataset.collapsed === '1';
+  el.dataset.collapsed = isCollapsed ? '0' : '1';
+  const body = el.querySelector('.orders-group-body');
+  const chevron = el.querySelector('.orders-collapse-chevron');
+  if (body) body.style.display = isCollapsed ? '' : 'none';
+  if (chevron) chevron.textContent = isCollapsed ? '▾' : '▸';
 }
 
 function renderOrders() {
@@ -1526,31 +1541,46 @@ function renderOrders() {
   html += `<button class="orders-btn orders-btn-primary" onclick="showAddItemModal()">+ Add Item</button>`;
   html += '</div></div>';
 
-  if (!items.length) {
-    const msg = ordersFilter === 'pending'
-      ? 'No pending items. Add items using the button above.'
+  // Apply search filter across groups
+  const q = ordersSearchQuery;
+  let groups = [...byJob.values()];
+  if (q) {
+    groups = groups.filter(group =>
+      group.jobId.includes(q) ||
+      (group.clientName || '').toLowerCase().includes(q) ||
+      group.items.some(i =>
+        (i.code || '').toLowerCase().includes(q) ||
+        (i.description || '').toLowerCase().includes(q)
+      )
+    );
+  }
+
+  if (!groups.length) {
+    const msg = q ? 'No items match your search.'
+      : ordersFilter === 'pending' ? 'No pending items. Add items using the button above.'
       : 'No ordered items yet.';
     html += `<div class="orders-empty">${msg}</div>`;
   } else {
     html += '<div class="orders-list">';
-    for (const [, group] of byJob) {
-      // Look up install date from job cache
+    groups.forEach((group, idx) => {
+      const collapsed = !q && idx >= 5;
       const jobData = allJobs.find(j => (j.generated_job_id || '') === group.jobId);
       const installStamp = jobData?.job_is_scheduled_until_stamp;
       const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
-      const installDateStr = installStamp && !installStamp.startsWith('0000')
-        ? installStamp.slice(0, 10)
-        : null;
+      const installDateStr = installStamp && !installStamp.startsWith('0000') ? installStamp.slice(0, 10) : null;
       const installLabel = installDateStr && installDateStr >= todayStr
         ? new Date(installDateStr + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
         : null;
 
-      html += '<div class="orders-job-group">';
-      html += '<div class="orders-job-header">';
+      html += `<div class="orders-job-group" id="orders-group-${esc(group.jobId)}" data-collapsed="${collapsed ? '1' : '0'}">`;
+      html += `<div class="orders-job-header" onclick="toggleOrdersGroup('${esc(group.jobId)}')" style="cursor:pointer;display:flex;align-items:center;gap:8px;">`;
+      html += `<span class="orders-collapse-chevron" style="font-size:.75rem;color:#64748b;width:10px;flex-shrink:0;">${collapsed ? '▸' : '▾'}</span>`;
       html += `<span class="orders-job-id">#${esc(group.jobId)}</span>`;
       if (group.clientName) html += `<span class="orders-job-client">${esc(group.clientName)}</span>`;
       if (installLabel) html += `<span class="orders-install-date">Install: ${esc(installLabel)}</span>`;
+      html += `<span style="margin-left:auto;font-size:.72rem;color:#64748b;">${group.items.length} item${group.items.length !== 1 ? 's' : ''}</span>`;
       html += '</div>';
+      html += `<div class="orders-group-body" style="display:${collapsed ? 'none' : ''};">`;
       for (const item of group.items) {
         html += '<div class="orders-item">';
         html += '<div class="orders-item-main">';
@@ -1576,8 +1606,8 @@ function renderOrders() {
         html += `<button class="orders-act-btn orders-act-delete" onclick="deleteOrderItem('${item.id}')">Delete</button>`;
         html += '</div></div>';
       }
-      html += '</div>';
-    }
+      html += '</div></div>';
+    });
     html += '</div>';
   }
 

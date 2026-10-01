@@ -64,6 +64,12 @@
 
   <!-- Orders view -->
   <div id="orders-view" class="orders-view hidden">
+    <div style="padding:12px 16px 0;">
+      <input type="text" id="orders-search" placeholder="Search job #, item code or description…" autocomplete="off"
+        oninput="ordersSearchQuery=this.value.toLowerCase().trim();renderOrders();"
+        style="width:100%;box-sizing:border-box;border:1px solid #334155;border-radius:8px;padding:8px 12px;font-size:.85rem;background:#1e293b;color:#e2e8f0;outline:none;"
+        onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#334155'">
+    </div>
     <div id="orders-body"></div>
   </div>
 
