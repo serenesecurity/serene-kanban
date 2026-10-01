@@ -634,9 +634,8 @@ body {
   padding: 0 4px;
 }
 .orders-search-input {
-  flex: 1;
-  min-width: 200px;
-  max-width: 420px;
+  width: 260px;
+  flex: none;
   border: 1px solid #334155;
   border-radius: 8px;
   padding: 7px 14px;
