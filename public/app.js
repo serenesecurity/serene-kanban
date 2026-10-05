@@ -1565,7 +1565,7 @@ function renderOrders() {
   } else {
     html += '<div class="orders-list">';
     groups.forEach((group, idx) => {
-      const collapsed = !q && idx >= 5;
+      const collapsed = ordersFilter === 'ordered' && !q && idx >= 5;
       const jobData = allJobs.find(j => (j.generated_job_id || '') === group.jobId);
       const installStamp = jobData?.job_is_scheduled_until_stamp;
       const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
@@ -1574,9 +1574,10 @@ function renderOrders() {
         ? new Date(installDateStr + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
         : null;
 
+      const canCollapse = ordersFilter === 'ordered';
       html += `<div class="orders-job-group" id="orders-group-${esc(group.jobId)}" data-collapsed="${collapsed ? '1' : '0'}">`;
-      html += `<div class="orders-job-header" onclick="toggleOrdersGroup('${esc(group.jobId)}')" style="cursor:pointer;display:flex;align-items:center;gap:8px;">`;
-      html += `<span class="orders-collapse-chevron" style="font-size:.75rem;color:#64748b;width:10px;flex-shrink:0;">${collapsed ? '▸' : '▾'}</span>`;
+      html += `<div class="orders-job-header" ${canCollapse ? `onclick="toggleOrdersGroup('${esc(group.jobId)}')"` : ''} style="cursor:${canCollapse ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;">`;
+      html += `<span class="orders-collapse-chevron" style="font-size:.75rem;color:#64748b;width:10px;flex-shrink:0;">${canCollapse ? (collapsed ? '▸' : '▾') : ''}</span>`;
       html += `<span class="orders-job-id">#${esc(group.jobId)}</span>`;
       if (group.clientName) html += `<span class="orders-job-client">${esc(group.clientName)}</span>`;
       if (installLabel) html += `<span class="orders-install-date">Install: ${esc(installLabel)}</span>`;
