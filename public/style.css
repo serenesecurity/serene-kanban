@@ -851,3 +851,16 @@ body {
 .action-act-done:hover { background: rgba(34,197,94,0.25); }
 .action-act-edit { background: rgba(56,189,248,0.1); color: #38bdf8; }
 .action-act-edit:hover { background: rgba(56,189,248,0.2); }
+.action-item-relates { font-size: 11px; color: #a78bfa; font-weight: 600; margin-top: 3px; }
+.action-due-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.action-due-ok { background: rgba(100,116,139,0.2); color: #94a3b8; }
+.action-due-soon { background: rgba(245,158,11,0.15); color: #fbbf24; }
+.action-due-overdue { background: rgba(239,68,68,0.15); color: #f87171; }
+input[type="date"].orders-form-input { color-scheme: dark; }

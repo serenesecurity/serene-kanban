@@ -1907,11 +1907,18 @@ function renderActions() {
   const done = allActions.filter(a => a.doneDate);
   const items = actionsFilter === 'pending' ? pending : done;
 
-  // Sort pending: high first, then normal, then low; within same priority oldest first
+  // Sort pending: overdue first, then by priority, then by due date, then oldest first
   const PORDER = { high: 0, normal: 1, low: 2 };
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
   const sorted = [...items].sort((a, b) => {
+    const aOver = a.dueDate && a.dueDate < todayStr ? 0 : 1;
+    const bOver = b.dueDate && b.dueDate < todayStr ? 0 : 1;
+    if (aOver !== bOver) return aOver - bOver;
     const pd = (PORDER[a.priority] ?? 1) - (PORDER[b.priority] ?? 1);
     if (pd !== 0) return pd;
+    if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+    if (a.dueDate) return -1;
+    if (b.dueDate) return 1;
     return new Date(a.createdAt) - new Date(b.createdAt);
   });
 
@@ -1936,7 +1943,13 @@ function renderActions() {
       html += '<div class="action-item-top">';
       if (p.cls) html += `<span class="action-priority-badge ${p.cls}">${p.label}</span>`;
       html += `<span class="action-item-title">${esc(item.title)}</span>`;
+      if (item.dueDate && !item.doneDate) {
+        const dueCls = item.dueDate < todayStr ? 'action-due-overdue' : item.dueDate <= new Date(Date.now() + 7*864e5).toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }) ? 'action-due-soon' : 'action-due-ok';
+        const dueLabel = new Date(item.dueDate + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+        html += `<span class="action-due-badge ${dueCls}">${item.dueDate < todayStr ? 'Overdue · ' : ''}${dueLabel}</span>`;
+      }
       html += '</div>';
+      if (item.relatesTo) html += `<div class="action-item-relates">${esc(item.relatesTo)}</div>`;
       if (item.notes) html += `<div class="action-item-notes">${esc(item.notes)}</div>`;
       if (item.doneDate) {
         const d = new Date(item.doneDate + 'T00:00:00');
@@ -1965,6 +1978,8 @@ function showAddActionModal() {
   document.getElementById('actions-modal-save-btn').textContent = 'Add Action';
   document.getElementById('action-title-input').value = '';
   document.getElementById('action-notes-input').value = '';
+  document.getElementById('action-relates-input').value = '';
+  document.getElementById('action-due-input').value = '';
   document.getElementById('action-priority-input').value = 'normal';
   document.getElementById('actions-modal-backdrop').style.display = 'flex';
   setTimeout(() => document.getElementById('action-title-input').focus(), 50);
@@ -1978,6 +1993,8 @@ function showEditActionModal(id) {
   document.getElementById('actions-modal-save-btn').textContent = 'Save Changes';
   document.getElementById('action-title-input').value = item.title;
   document.getElementById('action-notes-input').value = item.notes || '';
+  document.getElementById('action-relates-input').value = item.relatesTo || '';
+  document.getElementById('action-due-input').value = item.dueDate || '';
   document.getElementById('action-priority-input').value = item.priority || 'normal';
   document.getElementById('actions-modal-backdrop').style.display = 'flex';
   setTimeout(() => document.getElementById('action-title-input').focus(), 50);
@@ -1991,6 +2008,8 @@ function closeActionsModal(e) {
 async function submitAction() {
   const title = document.getElementById('action-title-input').value.trim();
   const notes = document.getElementById('action-notes-input').value.trim();
+  const relatesTo = document.getElementById('action-relates-input').value.trim();
+  const dueDate = document.getElementById('action-due-input').value || null;
   const priority = document.getElementById('action-priority-input').value;
   if (!title) { showToast('Enter a title', 'error'); return; }
 
@@ -1999,7 +2018,7 @@ async function submitAction() {
       const res = await fetch(`/api/actions/${editingActionId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, notes, priority }),
+        body: JSON.stringify({ title, notes, relatesTo, dueDate, priority }),
       });
       const updated = await res.json();
       const idx = allActions.findIndex(a => a.id === editingActionId);
@@ -2009,7 +2028,7 @@ async function submitAction() {
       const res = await fetch('/api/actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, notes, priority }),
+        body: JSON.stringify({ title, notes, relatesTo, dueDate, priority }),
       });
       const item = await res.json();
       allActions.push(item);

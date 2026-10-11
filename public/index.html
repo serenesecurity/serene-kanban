@@ -90,6 +90,16 @@
             <label class="orders-form-label">Notes</label>
             <textarea id="action-notes-input" class="orders-form-input" rows="3" placeholder="Optional details…" style="resize:vertical;"></textarea>
           </div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <div class="orders-form-field" style="flex:1;min-width:140px;">
+              <label class="orders-form-label">Relates to</label>
+              <input id="action-relates-input" type="text" class="orders-form-input" placeholder="e.g. Darley, ABS" autocomplete="off">
+            </div>
+            <div class="orders-form-field" style="flex:1;min-width:140px;">
+              <label class="orders-form-label">Due date</label>
+              <input id="action-due-input" type="date" class="orders-form-input">
+            </div>
+          </div>
           <div class="orders-form-field">
             <label class="orders-form-label">Priority</label>
             <select id="action-priority-input" class="orders-form-input" style="cursor:pointer;">

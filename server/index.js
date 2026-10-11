@@ -363,6 +363,8 @@ app.post('/api/actions', (req, res) => {
     id: randomUUID(),
     title: String(title).trim(),
     notes: (notes || '').trim(),
+    relatesTo: (req.body.relatesTo || '').trim(),
+    dueDate: req.body.dueDate || null,
     priority: ['high', 'normal', 'low'].includes(req.body.priority) ? req.body.priority : 'normal',
     doneDate: null,
     createdAt: new Date().toISOString(),
@@ -378,6 +380,8 @@ app.patch('/api/actions/:id', (req, res) => {
   if ('doneDate' in req.body) item.doneDate = req.body.doneDate;
   if ('title' in req.body) item.title = String(req.body.title).trim();
   if ('notes' in req.body) item.notes = (req.body.notes || '').trim();
+  if ('relatesTo' in req.body) item.relatesTo = (req.body.relatesTo || '').trim();
+  if ('dueDate' in req.body) item.dueDate = req.body.dueDate || null;
   if ('priority' in req.body) item.priority = req.body.priority;
   saveActions();
   res.json(item);
