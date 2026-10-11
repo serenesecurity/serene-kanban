@@ -18,6 +18,7 @@
       <div class="view-group">
         <button class="view-btn active" data-view="schedule" onclick="setView('schedule')">Schedule</button>
         <button class="view-btn" data-view="orders" onclick="setView('orders')">Orders</button>
+        <button class="view-btn" data-view="actions" onclick="setView('actions')">Actions</button>
       </div>
       <div class="filter-group" style="display:none">
         <button class="filter-btn" data-filter="all" onclick="setFilter('all')">All</button>
@@ -65,6 +66,45 @@
   <!-- Orders view -->
   <div id="orders-view" class="orders-view hidden">
     <div id="orders-body"></div>
+  </div>
+
+  <!-- Actions view -->
+  <div id="actions-view" class="actions-view hidden">
+    <div id="actions-body"></div>
+  </div>
+
+  <!-- Add Action modal -->
+  <div id="actions-modal-backdrop" class="modal-backdrop" style="display:none" onclick="closeActionsModal(event)">
+    <div class="modal modal-wide" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div><h2 style="font-size:16px;margin-top:0;" id="actions-modal-title">Add Action</h2></div>
+        <button class="modal-close" onclick="closeActionsModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="orders-form">
+          <div class="orders-form-field">
+            <label class="orders-form-label">Title <span style="color:#ef4444;">*</span></label>
+            <input id="action-title-input" type="text" class="orders-form-input" placeholder="e.g. Order safety glasses" autocomplete="off">
+          </div>
+          <div class="orders-form-field">
+            <label class="orders-form-label">Notes</label>
+            <textarea id="action-notes-input" class="orders-form-input" rows="3" placeholder="Optional details…" style="resize:vertical;"></textarea>
+          </div>
+          <div class="orders-form-field">
+            <label class="orders-form-label">Priority</label>
+            <select id="action-priority-input" class="orders-form-input" style="cursor:pointer;">
+              <option value="high">High</option>
+              <option value="normal" selected>Normal</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <div class="orders-form-actions">
+            <button class="orders-btn orders-btn-secondary" onclick="closeActionsModal()">Cancel</button>
+            <button class="orders-btn orders-btn-primary" id="actions-modal-save-btn" onclick="submitAction()">Add Action</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Orders add modal -->

@@ -34,6 +34,11 @@ const ordersPath = join(dataDir, 'orders.json');
 let ordersData = { items: [] };
 try { ordersData = JSON.parse(readF(ordersPath, 'utf-8')); } catch {}
 function saveOrders() { writeF(ordersPath, JSON.stringify(ordersData), 'utf-8'); }
+
+const actionsPath = join(dataDir, 'actions.json');
+let actionsData = { items: [] };
+try { actionsData = JSON.parse(readF(actionsPath, 'utf-8')); } catch {}
+function saveActions() { writeF(actionsPath, JSON.stringify(actionsData), 'utf-8'); }
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -343,6 +348,46 @@ app.delete('/api/orders/:id', (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Not found' });
   ordersData.items.splice(idx, 1);
   saveOrders();
+  res.json({ ok: true });
+});
+
+// --- Actions routes ---
+app.get('/api/actions', (_req, res) => {
+  res.json(actionsData);
+});
+
+app.post('/api/actions', (req, res) => {
+  const { title, notes, priority } = req.body;
+  if (!title) return res.status(400).json({ error: 'title required' });
+  const item = {
+    id: randomUUID(),
+    title: String(title).trim(),
+    notes: (notes || '').trim(),
+    priority: ['high', 'normal', 'low'].includes(req.body.priority) ? req.body.priority : 'normal',
+    doneDate: null,
+    createdAt: new Date().toISOString(),
+  };
+  actionsData.items.push(item);
+  saveActions();
+  res.json(item);
+});
+
+app.patch('/api/actions/:id', (req, res) => {
+  const item = actionsData.items.find(i => i.id === req.params.id);
+  if (!item) return res.status(404).json({ error: 'Not found' });
+  if ('doneDate' in req.body) item.doneDate = req.body.doneDate;
+  if ('title' in req.body) item.title = String(req.body.title).trim();
+  if ('notes' in req.body) item.notes = (req.body.notes || '').trim();
+  if ('priority' in req.body) item.priority = req.body.priority;
+  saveActions();
+  res.json(item);
+});
+
+app.delete('/api/actions/:id', (req, res) => {
+  const idx = actionsData.items.findIndex(i => i.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Not found' });
+  actionsData.items.splice(idx, 1);
+  saveActions();
   res.json({ ok: true });
 });
 

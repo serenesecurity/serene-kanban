@@ -82,6 +82,7 @@ function setView(view) {
   document.getElementById('board').classList.add('hidden');
   document.getElementById('schedule-view').classList.add('hidden');
   document.getElementById('orders-view').classList.add('hidden');
+  document.getElementById('actions-view').classList.add('hidden');
 
   if (view === 'schedule') {
     document.getElementById('schedule-view').classList.remove('hidden');
@@ -89,6 +90,9 @@ function setView(view) {
   } else if (view === 'orders') {
     document.getElementById('orders-view').classList.remove('hidden');
     loadOrders();
+  } else if (view === 'actions') {
+    document.getElementById('actions-view').classList.remove('hidden');
+    loadActions();
   } else {
     document.getElementById('board').classList.remove('hidden');
     renderBoard();
@@ -1870,6 +1874,197 @@ async function placeWeeklyOrder() {
     showToast(`${data.count} items marked as ordered`);
   } catch {
     showToast('Failed to place order', 'error');
+  }
+}
+
+// --- Actions ---
+let allActions = [];
+let actionsFilter = 'pending';
+let editingActionId = null;
+
+async function loadActions() {
+  const body = document.getElementById('actions-body');
+  body.innerHTML = '<p style="color:#64748b;text-align:center;padding:40px;">Loading...</p>';
+  try {
+    const data = await fetch('/api/actions').then(r => r.json());
+    allActions = data.items || [];
+    renderActions();
+  } catch {
+    body.innerHTML = '<p style="color:#ef4444;text-align:center;padding:40px;">Failed to load actions</p>';
+  }
+}
+
+function setActionsFilter(f) {
+  actionsFilter = f;
+  renderActions();
+}
+
+const ACTION_PRIORITY = { high: { label: 'High', cls: 'action-priority-high' }, normal: { label: 'Normal', cls: '' }, low: { label: 'Low', cls: 'action-priority-low' } };
+
+function renderActions() {
+  const body = document.getElementById('actions-body');
+  const pending = allActions.filter(a => !a.doneDate);
+  const done = allActions.filter(a => a.doneDate);
+  const items = actionsFilter === 'pending' ? pending : done;
+
+  // Sort pending: high first, then normal, then low; within same priority oldest first
+  const PORDER = { high: 0, normal: 1, low: 2 };
+  const sorted = [...items].sort((a, b) => {
+    const pd = (PORDER[a.priority] ?? 1) - (PORDER[b.priority] ?? 1);
+    if (pd !== 0) return pd;
+    return new Date(a.createdAt) - new Date(b.createdAt);
+  });
+
+  let html = '<div class="orders-topbar">';
+  html += '<div class="orders-filter-group">';
+  html += `<button class="orders-filter-btn ${actionsFilter === 'pending' ? 'active' : ''}" onclick="setActionsFilter('pending')">Pending <span class="orders-filter-count">${pending.length}</span></button>`;
+  html += `<button class="orders-filter-btn ${actionsFilter === 'done' ? 'active' : ''}" onclick="setActionsFilter('done')">Done <span class="orders-filter-count">${done.length}</span></button>`;
+  html += '</div>';
+  html += '<div class="orders-topbar-actions" style="margin-left:auto;">';
+  html += `<button class="orders-btn orders-btn-primary" onclick="showAddActionModal()">+ Add Action</button>`;
+  html += '</div></div>';
+
+  if (!sorted.length) {
+    const msg = actionsFilter === 'pending' ? 'No pending actions. Add one using the button above.' : 'No completed actions yet.';
+    html += `<div class="orders-empty">${msg}</div>`;
+  } else {
+    html += '<div class="actions-list">';
+    for (const item of sorted) {
+      const p = ACTION_PRIORITY[item.priority] || ACTION_PRIORITY.normal;
+      html += `<div class="action-item${item.doneDate ? ' action-item-done' : ''}">`;
+      html += '<div class="action-item-main">';
+      html += '<div class="action-item-top">';
+      if (p.cls) html += `<span class="action-priority-badge ${p.cls}">${p.label}</span>`;
+      html += `<span class="action-item-title">${esc(item.title)}</span>`;
+      html += '</div>';
+      if (item.notes) html += `<div class="action-item-notes">${esc(item.notes)}</div>`;
+      if (item.doneDate) {
+        const d = new Date(item.doneDate + 'T00:00:00');
+        html += `<div class="action-item-donedate">Completed ${d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</div>`;
+      }
+      html += '</div>';
+      html += '<div class="action-item-actions">';
+      if (!item.doneDate) {
+        html += `<button class="orders-act-btn action-act-edit" onclick="showEditActionModal('${item.id}')">Edit</button>`;
+        html += `<button class="orders-act-btn action-act-done" onclick="markActionDone('${item.id}')">Mark Done</button>`;
+      } else {
+        html += `<button class="orders-act-btn orders-act-unorder" onclick="unmarkActionDone('${item.id}')">Reopen</button>`;
+      }
+      html += `<button class="orders-act-btn orders-act-delete" onclick="deleteAction('${item.id}')">Delete</button>`;
+      html += '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  body.innerHTML = html;
+}
+
+function showAddActionModal() {
+  editingActionId = null;
+  document.getElementById('actions-modal-title').textContent = 'Add Action';
+  document.getElementById('actions-modal-save-btn').textContent = 'Add Action';
+  document.getElementById('action-title-input').value = '';
+  document.getElementById('action-notes-input').value = '';
+  document.getElementById('action-priority-input').value = 'normal';
+  document.getElementById('actions-modal-backdrop').style.display = 'flex';
+  setTimeout(() => document.getElementById('action-title-input').focus(), 50);
+}
+
+function showEditActionModal(id) {
+  const item = allActions.find(a => a.id === id);
+  if (!item) return;
+  editingActionId = id;
+  document.getElementById('actions-modal-title').textContent = 'Edit Action';
+  document.getElementById('actions-modal-save-btn').textContent = 'Save Changes';
+  document.getElementById('action-title-input').value = item.title;
+  document.getElementById('action-notes-input').value = item.notes || '';
+  document.getElementById('action-priority-input').value = item.priority || 'normal';
+  document.getElementById('actions-modal-backdrop').style.display = 'flex';
+  setTimeout(() => document.getElementById('action-title-input').focus(), 50);
+}
+
+function closeActionsModal(e) {
+  if (e && e.target !== document.getElementById('actions-modal-backdrop')) return;
+  document.getElementById('actions-modal-backdrop').style.display = 'none';
+}
+
+async function submitAction() {
+  const title = document.getElementById('action-title-input').value.trim();
+  const notes = document.getElementById('action-notes-input').value.trim();
+  const priority = document.getElementById('action-priority-input').value;
+  if (!title) { showToast('Enter a title', 'error'); return; }
+
+  try {
+    if (editingActionId) {
+      const res = await fetch(`/api/actions/${editingActionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, notes, priority }),
+      });
+      const updated = await res.json();
+      const idx = allActions.findIndex(a => a.id === editingActionId);
+      if (idx !== -1) allActions[idx] = updated;
+      showToast('Action updated');
+    } else {
+      const res = await fetch('/api/actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, notes, priority }),
+      });
+      const item = await res.json();
+      allActions.push(item);
+      actionsFilter = 'pending';
+      showToast('Action added');
+    }
+    document.getElementById('actions-modal-backdrop').style.display = 'none';
+    renderActions();
+  } catch {
+    showToast('Failed to save action', 'error');
+  }
+}
+
+async function markActionDone(id) {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
+  try {
+    await fetch(`/api/actions/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doneDate: today }),
+    });
+    const item = allActions.find(a => a.id === id);
+    if (item) item.doneDate = today;
+    renderActions();
+    showToast('Marked as done');
+  } catch {
+    showToast('Failed to update', 'error');
+  }
+}
+
+async function unmarkActionDone(id) {
+  try {
+    await fetch(`/api/actions/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doneDate: null }),
+    });
+    const item = allActions.find(a => a.id === id);
+    if (item) item.doneDate = null;
+    renderActions();
+    showToast('Action reopened');
+  } catch {
+    showToast('Failed to update', 'error');
+  }
+}
+
+async function deleteAction(id) {
+  if (!confirm('Delete this action?')) return;
+  try {
+    await fetch(`/api/actions/${id}`, { method: 'DELETE' });
+    allActions = allActions.filter(a => a.id !== id);
+    renderActions();
+    showToast('Action deleted');
+  } catch {
+    showToast('Failed to delete', 'error');
   }
 }
 
