@@ -504,6 +504,8 @@ body {
 .sched-mini-bar { height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; margin-top: 4px; overflow: hidden; }
 .sched-mini-bar div { height: 100%; border-radius: 2px; }
 .sched-no-deposit { font-size: 11px; color: var(--text-muted); }
+.sched-parts-ordered { font-size: 11px; font-weight: 600; color: #22c55e; }
+.sched-parts-pending { font-size: 11px; font-weight: 600; color: #f59e0b; }
 .st-nodeposit { background: rgba(251,146,60,0.15); color: #fb923c; }
 .sched-nodeposit-section { margin-top: 24px; }
 .sched-nodeposit-header { padding: 10px 16px; background: rgba(251,146,60,0.12); border: 1px solid rgba(251,146,60,0.3); border-radius: 6px 6px 0 0; color: #fb923c; font-size: 13px; font-weight: 600; }

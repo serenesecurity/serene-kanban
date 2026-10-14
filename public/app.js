@@ -760,6 +760,7 @@ function renderScheduler(data) {
     <th>Days</th>
     <th>Ready Window</th>
     <th>Deposit</th>
+    <th>Parts</th>
   </tr></thead><tbody>`;
 
   let lastStatus = '';
@@ -767,7 +768,7 @@ function renderScheduler(data) {
     // Section divider row
     if (r.status !== lastStatus) {
       lastStatus = r.status;
-      html += `<tr class="sched-divider ${r.statusCls}-bg"><td colspan="9">${esc(r.status)}${r.status === 'Ready' ? ' — ready to book installation' : r.status === 'Coming Soon' ? ' — parts arriving soon' : r.status === 'Ordered' ? ' — recently placed' : r.status === 'Not Sent' ? ' — order form not yet sent' : ' — installation scheduled'}</td></tr>`;
+      html += `<tr class="sched-divider ${r.statusCls}-bg"><td colspan="10">${esc(r.status)}${r.status === 'Ready' ? ' — ready to book installation' : r.status === 'Coming Soon' ? ' — parts arriving soon' : r.status === 'Ordered' ? ' — recently placed' : r.status === 'Not Sent' ? ' — order form not yet sent' : ' — installation scheduled'}</td></tr>`;
     }
 
     const winStart = r.readyWindowStart || 18;
@@ -798,6 +799,16 @@ function renderScheduler(data) {
       progressBar = `<div class="sched-mini-bar"><div style="width:${pct}%;background:${barColor}"></div></div>`;
     }
 
+    // Parts order status from Orders page
+    const jobOrders = allOrders.filter(o => o.jobId === r.jobId);
+    let partsStr = '';
+    if (jobOrders.length) {
+      const hasPending = jobOrders.some(o => !o.orderedDate);
+      partsStr = hasPending
+        ? '<span class="sched-parts-pending">Pending</span>'
+        : '<span class="sched-parts-ordered">Ordered</span>';
+    }
+
     html += `<tr class="sched-row">
       <td><span class="sched-status-badge ${r.statusCls}">${esc(r.status)}</span></td>
       <td class="sched-cell-id">${esc(r.jobId)}</td>
@@ -807,6 +818,7 @@ function renderScheduler(data) {
       <td>${daysStr}${progressBar}</td>
       <td>${estReadyStr}</td>
       <td>${depositStr}</td>
+      <td>${partsStr}</td>
     </tr>`;
   }
 
