@@ -695,8 +695,10 @@ async function loadScheduler() {
   body.innerHTML = '<p style="color:#64748b;text-align:center;padding:40px;">Loading scheduler...</p>';
 
   try {
-    const res = await fetch('/api/scheduler');
-    const data = await res.json();
+    const [schedRes, ordersRes] = await Promise.all([fetch('/api/scheduler'), fetch('/api/orders')]);
+    const data = await schedRes.json();
+    const ordersData = await ordersRes.json();
+    allOrders = ordersData.items || [];
     renderScheduler(data);
   } catch {
     body.innerHTML = '<p style="color:#ef4444;text-align:center;padding:40px;">Failed to load scheduler</p>';
