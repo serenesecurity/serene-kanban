@@ -805,7 +805,7 @@ function renderScheduler(data) {
     const jobOrders = allOrders.filter(o => o.jobId === r.jobId);
     let partsStr = '';
     if (jobOrders.length) {
-      const hasPending = jobOrders.some(o => !o.orderedDate);
+      const hasPending = jobOrders.some(o => !o.orderedDate && !o.inStock);
       partsStr = hasPending
         ? '<span class="sched-parts-pending">Pending</span>'
         : '<span class="sched-parts-ordered">Ordered</span>';
@@ -1524,8 +1524,8 @@ function toggleOrdersGroup(jobId) {
 function renderOrders() {
   const body = document.getElementById('orders-body');
 
-  const pending = allOrders.filter(i => !i.orderedDate);
-  const ordered = allOrders.filter(i => i.orderedDate);
+  const pending = allOrders.filter(i => !i.orderedDate && !i.inStock);
+  const ordered = allOrders.filter(i => i.orderedDate || i.inStock);
   const items = ordersFilter === 'pending' ? pending : ordered;
 
   // Group by jobId
@@ -1616,8 +1616,12 @@ function renderOrders() {
         } else {
           html += `<button class="orders-act-btn orders-act-supplier" onclick="editSupplier('${item.id}', this)">+ Supplier</button>`;
         }
-        if (!item.orderedDate) {
+        if (item.inStock) {
+          html += `<span class="orders-instock-badge">In Stock</span>`;
+          html += `<button class="orders-act-btn orders-act-unorder" onclick="unmarkItemInStock('${item.id}')">Undo</button>`;
+        } else if (!item.orderedDate) {
           html += `<button class="orders-act-btn orders-act-order" onclick="markItemOrdered('${item.id}')">Mark Ordered</button>`;
+          html += `<button class="orders-act-btn orders-act-instock" onclick="markItemInStock('${item.id}')">In Stock</button>`;
         } else {
           const d = new Date(item.orderedDate + 'T00:00:00');
           const dateStr = d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
@@ -1789,6 +1793,38 @@ async function unmarkItemOrdered(id) {
   }
 }
 
+async function markItemInStock(id) {
+  try {
+    await fetch(`/api/orders/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inStock: true }),
+    });
+    const item = allOrders.find(i => i.id === id);
+    if (item) item.inStock = true;
+    renderOrders();
+    showToast('Marked as in stock');
+  } catch {
+    showToast('Failed to update', 'error');
+  }
+}
+
+async function unmarkItemInStock(id) {
+  try {
+    await fetch(`/api/orders/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inStock: false }),
+    });
+    const item = allOrders.find(i => i.id === id);
+    if (item) item.inStock = false;
+    renderOrders();
+    showToast('In stock mark removed');
+  } catch {
+    showToast('Failed to update', 'error');
+  }
+}
+
 async function deleteOrderItem(id) {
   if (!confirm('Delete this item?')) return;
   try {
@@ -1802,7 +1838,7 @@ async function deleteOrderItem(id) {
 }
 
 function exportEmail() {
-  const pending = allOrders.filter(i => !i.orderedDate);
+  const pending = allOrders.filter(i => !i.orderedDate && !i.inStock);
   if (!pending.length) { showToast('No pending items to export', 'error'); return; }
 
   const now = new Date(new Date().toLocaleString('en-AU', { timeZone: 'Australia/Brisbane' }));
@@ -1878,7 +1914,7 @@ async function copyExportEmail() {
 }
 
 async function placeWeeklyOrder() {
-  const count = allOrders.filter(i => !i.orderedDate).length;
+  const count = allOrders.filter(i => !i.orderedDate && !i.inStock).length;
   if (!count) return;
   if (!confirm(`Mark all ${count} pending items as ordered today?`)) return;
   try {

@@ -329,6 +329,7 @@ app.patch('/api/orders/:id', (req, res) => {
   if (!item) return res.status(404).json({ error: 'Not found' });
   if ('orderedDate' in req.body) item.orderedDate = req.body.orderedDate;
   if ('supplier' in req.body) item.supplier = (req.body.supplier || '').trim();
+  if ('inStock' in req.body) item.inStock = !!req.body.inStock;
   saveOrders();
   res.json(item);
 });
@@ -337,7 +338,7 @@ app.post('/api/orders/batch-order', (_req, res) => {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
   let count = 0;
   for (const item of ordersData.items) {
-    if (!item.orderedDate) { item.orderedDate = today; count++; }
+    if (!item.orderedDate && !item.inStock) { item.orderedDate = today; count++; }
   }
   saveOrders();
   res.json({ ok: true, count });
