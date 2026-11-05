@@ -1882,7 +1882,7 @@ function exportEmail() {
   const fullPlain = plainParts.join('\n\n---\n\n');
   const fullHtml = htmlParts.join('<hr>');
 
-  document.getElementById('export-ref').textContent = ref;
+  document.getElementById('export-subject').textContent = `Serene Security Ref #${ref}`;
   document.getElementById('export-body').value = fullPlain;
   document.getElementById('export-modal-backdrop').style.display = 'flex';
   // Store html for clipboard
