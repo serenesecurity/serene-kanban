@@ -1843,7 +1843,7 @@ function exportEmail() {
 
   const now = new Date(new Date().toLocaleString('en-AU', { timeZone: 'Australia/Brisbane' }));
   const ref = `${String(now.getDate()).padStart(2,'0')}${String(now.getMonth()+1).padStart(2,'0')}${now.getFullYear()}`;
-  const DELIVERY = '38a Maryborough Terrace, Scarborough QLD 4020';
+  const DELIVERY = 'Unit 6/34-40 Robson St Clontarf QLD 4019';
 
   // Group by supplier
   const bySupplier = new Map();
@@ -1858,7 +1858,7 @@ function exportEmail() {
 
   for (const [, items] of bySupplier) {
     const pad = (s, n) => String(s).padEnd(n);
-    let plain = `Hi,\n\nCan we please order the following, to be delivered to: ${DELIVERY}.\n\nPlease let us know if any items are on back order and an approx. lead time.\n`;
+    let plain = `Hi,\n\nCan we please order the following, to be delivered to: ${DELIVERY}.\n\nThere are automated gates for the complex and should opened at 6am. If no one is at the warehouse at time of delivery, please leave items in-front of roller door & entry door.\n\nPlease let us know if any items are on back order and an approx. lead time.\n`;
     plain += `\n${pad('Code',14)}${pad('Description',42)}${pad('Colour',22)}Quantity\n`;
     plain += `${'-'.repeat(14)}${'-'.repeat(42)}${'-'.repeat(22)}${'-'.repeat(8)}\n`;
     for (const item of items) {
@@ -1867,7 +1867,7 @@ function exportEmail() {
     plain += `\nThanks,\nSerene Security`;
     plainParts.push(plain);
 
-    let html = `<p>Hi,</p><p>Can we please order the following, to be delivered to: ${DELIVERY}.</p><p>Please let us know if any items are on back order and an approx. lead time.</p>`;
+    let html = `<p>Hi,</p><p>Can we please order the following, to be delivered to: ${DELIVERY}.</p><p>There are automated gates for the complex and should opened at 6am. If no one is at the warehouse at time of delivery, please leave items in-front of roller door &amp; entry door.</p><p>Please let us know if any items are on back order and an approx. lead time.</p>`;
     html += `<table border="0" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;">`;
     html += `<thead><tr style="border-bottom:2px solid #000;">`;
     html += `<th style="text-align:left;padding-right:24px;">Code</th><th style="text-align:left;padding-right:24px;">Description</th><th style="text-align:left;padding-right:24px;">Colour</th><th style="text-align:left;">Quantity</th>`;
