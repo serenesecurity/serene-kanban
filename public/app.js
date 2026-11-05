@@ -83,6 +83,7 @@ function setView(view) {
   document.getElementById('schedule-view').classList.add('hidden');
   document.getElementById('orders-view').classList.add('hidden');
   document.getElementById('actions-view').classList.add('hidden');
+  document.getElementById('inventory-view').classList.add('hidden');
 
   if (view === 'schedule') {
     document.getElementById('schedule-view').classList.remove('hidden');
@@ -93,6 +94,11 @@ function setView(view) {
   } else if (view === 'actions') {
     document.getElementById('actions-view').classList.remove('hidden');
     loadActions();
+  } else if (view === 'inventory') {
+    document.getElementById('inventory-view').classList.remove('hidden');
+    inventoryFilter = 'not-prepped';
+    inventorySearchQuery = '';
+    loadInventory();
   } else {
     document.getElementById('board').classList.remove('hidden');
     renderBoard();
@@ -2134,6 +2140,154 @@ async function deleteAction(id) {
     showToast('Action deleted');
   } catch {
     showToast('Failed to delete', 'error');
+  }
+}
+
+// --- Inventory ---
+let inventoryFilter = 'not-prepped'; // 'all' | 'not-prepped' | 'prepped'
+let inventorySearchQuery = '';
+
+async function loadInventory() {
+  const body = document.getElementById('inventory-body');
+  body.innerHTML = '<p style="color:#64748b;text-align:center;padding:40px;">Loading...</p>';
+  try {
+    const data = await fetch('/api/orders').then(r => r.json());
+    allOrders = data.items || [];
+    renderInventory();
+  } catch {
+    body.innerHTML = '<p style="color:#ef4444;text-align:center;padding:40px;">Failed to load inventory</p>';
+  }
+}
+
+function setInventoryFilter(f) {
+  inventoryFilter = f;
+  renderInventory();
+}
+
+function renderInventory() {
+  const body = document.getElementById('inventory-body');
+  if (!body) return;
+
+  // Only items that have been ordered or marked in-stock
+  const items = allOrders.filter(i => i.orderedDate || i.inStock);
+
+  const q = inventorySearchQuery.toLowerCase().trim();
+  const filtered = items.filter(i => {
+    if (inventoryFilter === 'prepped' && !i.preppedDate) return false;
+    if (inventoryFilter === 'not-prepped' && i.preppedDate) return false;
+    if (q) {
+      const hay = `${i.jobId} ${i.clientName || ''} ${i.code || ''} ${i.description} ${i.colour || ''} ${i.supplier || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const prepped = items.filter(i => i.preppedDate).length;
+  const notPrepped = items.filter(i => !i.preppedDate).length;
+
+  // Group by jobId
+  const byJob = new Map();
+  for (const item of filtered) {
+    if (!byJob.has(item.jobId)) byJob.set(item.jobId, { jobId: item.jobId, clientName: item.clientName, items: [] });
+    byJob.get(item.jobId).items.push(item);
+  }
+
+  let html = '<div class="orders-topbar">';
+  html += '<div class="orders-filter-group">';
+  html += `<button class="orders-filter-btn ${inventoryFilter === 'all' ? 'active' : ''}" onclick="setInventoryFilter('all')">All <span class="orders-filter-count">${items.length}</span></button>`;
+  html += `<button class="orders-filter-btn ${inventoryFilter === 'not-prepped' ? 'active' : ''}" onclick="setInventoryFilter('not-prepped')">Not Prepped <span class="orders-filter-count">${notPrepped}</span></button>`;
+  html += `<button class="orders-filter-btn ${inventoryFilter === 'prepped' ? 'active' : ''}" onclick="setInventoryFilter('prepped')">Prepped <span class="orders-filter-count">${prepped}</span></button>`;
+  html += '</div>';
+  html += `<input type="text" id="inventory-search" class="orders-search-input" placeholder="Search job #, code or description…" autocomplete="off" value="${esc(inventorySearchQuery)}"
+    oninput="inventorySearchQuery=this.value.toLowerCase().trim();renderInventory();">`;
+  html += '</div>';
+
+  if (!byJob.size) {
+    const msg = q ? 'No items match your search.' : inventoryFilter === 'prepped' ? 'No prepped items yet.' : inventoryFilter === 'not-prepped' ? 'All items are prepped.' : 'No ordered or in-stock items.';
+    html += `<div class="orders-empty">${msg}</div>`;
+  } else {
+    html += '<div class="orders-list">';
+    for (const group of byJob.values()) {
+      html += `<div class="orders-job-group">`;
+      html += `<div class="orders-job-header" style="cursor:default;display:flex;align-items:center;gap:8px;">`;
+      html += `<span class="orders-collapse-chevron" style="width:10px;flex-shrink:0;"></span>`;
+      html += `<a href="https://go.servicem8.com/job/${group.jobId}" target="_blank" class="orders-job-link">#${esc(group.jobId)}</a>`;
+      if (group.clientName) html += `<span class="orders-job-client">${esc(group.clientName)}</span>`;
+      const jobPrepped = group.items.filter(i => i.preppedDate).length;
+      const jobTotal = group.items.length;
+      const allJobPrepped = jobPrepped === jobTotal;
+      html += `<span style="margin-left:auto;font-size:.72rem;color:${allJobPrepped ? '#4ade80' : '#64748b'};">${jobPrepped}/${jobTotal} prepped</span>`;
+      html += '</div>';
+      html += '<div class="orders-group-body">';
+      for (const item of group.items) {
+        html += '<div class="orders-item">';
+        html += '<div class="orders-item-main">';
+        if (item.code) html += `<span class="orders-item-code">${esc(item.code)}</span>`;
+        html += `<span class="orders-item-desc">${esc(item.description)}</span>`;
+        if (item.colour) html += `<span class="orders-item-colour">${esc(item.colour)}</span>`;
+        if (item.qty && item.qty > 1) html += `<span class="orders-item-qty">×${item.qty}</span>`;
+        html += '</div>';
+        html += '<div class="orders-item-actions">';
+        if (item.inStock) {
+          html += `<span class="orders-instock-badge">In Stock</span>`;
+        } else if (item.orderedDate) {
+          const d = new Date(item.orderedDate + 'T00:00:00');
+          const dateStr = d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+          html += `<span class="orders-ordered-date">Ordered ${dateStr}</span>`;
+        }
+        if (item.preppedDate) {
+          const pd = new Date(item.preppedDate + 'T00:00:00');
+          const pdStr = pd.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+          html += `<span class="inv-prepped-badge">Prepped ${pdStr}</span>`;
+          html += `<button class="orders-act-btn orders-act-unorder" onclick="unmarkItemPrepped('${item.id}')">Undo</button>`;
+        } else {
+          html += `<button class="orders-act-btn inv-act-prep" onclick="markItemPrepped('${item.id}')">Mark Prepped</button>`;
+        }
+        html += '</div></div>';
+      }
+      html += '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  const prevActive = document.activeElement?.id;
+  body.innerHTML = html;
+  if (prevActive === 'inventory-search') {
+    const el = document.getElementById('inventory-search');
+    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  }
+}
+
+async function markItemPrepped(id) {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
+  try {
+    await fetch(`/api/orders/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preppedDate: today }),
+    });
+    const item = allOrders.find(i => i.id === id);
+    if (item) item.preppedDate = today;
+    renderInventory();
+    showToast('Marked as prepped');
+  } catch {
+    showToast('Failed to update', 'error');
+  }
+}
+
+async function unmarkItemPrepped(id) {
+  try {
+    await fetch(`/api/orders/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preppedDate: null }),
+    });
+    const item = allOrders.find(i => i.id === id);
+    if (item) item.preppedDate = null;
+    renderInventory();
+    showToast('Prepped mark removed');
+  } catch {
+    showToast('Failed to update', 'error');
   }
 }
 

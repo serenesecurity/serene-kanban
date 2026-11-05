@@ -330,6 +330,7 @@ app.patch('/api/orders/:id', (req, res) => {
   if ('orderedDate' in req.body) item.orderedDate = req.body.orderedDate;
   if ('supplier' in req.body) item.supplier = (req.body.supplier || '').trim();
   if ('inStock' in req.body) item.inStock = !!req.body.inStock;
+  if ('preppedDate' in req.body) item.preppedDate = req.body.preppedDate;
   saveOrders();
   res.json(item);
 });
