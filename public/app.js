@@ -1841,8 +1841,8 @@ function exportEmail() {
   const pending = allOrders.filter(i => !i.orderedDate && !i.inStock);
   if (!pending.length) { showToast('No pending items to export', 'error'); return; }
 
-  const now = new Date(new Date().toLocaleString('en-AU', { timeZone: 'Australia/Brisbane' }));
-  const ref = `${String(now.getDate()).padStart(2,'0')}${String(now.getMonth()+1).padStart(2,'0')}${now.getFullYear()}`;
+  const [refYear, refMonth, refDay] = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }).split('-');
+  const ref = `${refDay}${refMonth}${refYear}`;
   const DELIVERY = 'Unit 6/34-40 Robson St Clontarf QLD 4019';
 
   // Group by supplier
