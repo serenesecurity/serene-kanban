@@ -2185,11 +2185,12 @@ function renderInventory() {
   const prepped = items.filter(i => i.preppedDate).length;
   const notPrepped = items.filter(i => !i.preppedDate).length;
 
-  // Group by jobId
-  const byJob = new Map();
+  // Group by item type: code + description + colour
+  const byType = new Map();
   for (const item of filtered) {
-    if (!byJob.has(item.jobId)) byJob.set(item.jobId, { jobId: item.jobId, clientName: item.clientName, items: [] });
-    byJob.get(item.jobId).items.push(item);
+    const key = `${(item.code || '').toLowerCase()}|${item.description.toLowerCase()}|${(item.colour || '').toLowerCase()}`;
+    if (!byType.has(key)) byType.set(key, { code: item.code, description: item.description, colour: item.colour, items: [] });
+    byType.get(key).items.push(item);
   }
 
   let html = '<div class="orders-topbar">';
@@ -2202,29 +2203,26 @@ function renderInventory() {
     oninput="inventorySearchQuery=this.value.toLowerCase().trim();renderInventory();">`;
   html += '</div>';
 
-  if (!byJob.size) {
+  if (!byType.size) {
     const msg = q ? 'No items match your search.' : inventoryFilter === 'prepped' ? 'No prepped items yet.' : inventoryFilter === 'not-prepped' ? 'All items are prepped.' : 'No ordered or in-stock items.';
     html += `<div class="orders-empty">${msg}</div>`;
   } else {
     html += '<div class="orders-list">';
-    for (const group of byJob.values()) {
+    for (const group of byType.values()) {
       html += `<div class="orders-job-group">`;
       html += `<div class="orders-job-header" style="cursor:default;display:flex;align-items:center;gap:8px;">`;
       html += `<span class="orders-collapse-chevron" style="width:10px;flex-shrink:0;"></span>`;
-      html += `<a href="https://go.servicem8.com/job/${group.jobId}" target="_blank" class="orders-job-link">#${esc(group.jobId)}</a>`;
-      if (group.clientName) html += `<span class="orders-job-client">${esc(group.clientName)}</span>`;
-      const jobPrepped = group.items.filter(i => i.preppedDate).length;
-      const jobTotal = group.items.length;
-      const allJobPrepped = jobPrepped === jobTotal;
-      html += `<span style="margin-left:auto;font-size:.72rem;color:${allJobPrepped ? '#4ade80' : '#64748b'};">${jobPrepped}/${jobTotal} prepped</span>`;
+      if (group.code) html += `<span class="orders-item-code">${esc(group.code)}</span>`;
+      html += `<span class="orders-job-client" style="font-weight:600;color:#e2e8f0;">${esc(group.description)}</span>`;
+      if (group.colour) html += `<span class="orders-item-colour">${esc(group.colour)}</span>`;
+      html += `<span style="margin-left:auto;font-size:.72rem;color:#64748b;">${group.items.length} job${group.items.length !== 1 ? 's' : ''}</span>`;
       html += '</div>';
       html += '<div class="orders-group-body">';
       for (const item of group.items) {
         html += '<div class="orders-item">';
         html += '<div class="orders-item-main">';
-        if (item.code) html += `<span class="orders-item-code">${esc(item.code)}</span>`;
-        html += `<span class="orders-item-desc">${esc(item.description)}</span>`;
-        if (item.colour) html += `<span class="orders-item-colour">${esc(item.colour)}</span>`;
+        html += `<a href="https://go.servicem8.com/job/${item.jobId}" target="_blank" class="orders-job-link" style="font-size:.8rem;">#${esc(item.jobId)}</a>`;
+        if (item.clientName) html += `<span class="orders-item-colour">${esc(item.clientName)}</span>`;
         if (item.qty && item.qty > 1) html += `<span class="orders-item-qty">×${item.qty}</span>`;
         html += '</div>';
         html += '<div class="orders-item-actions">';
