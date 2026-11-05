@@ -83,7 +83,6 @@ function setView(view) {
   document.getElementById('schedule-view').classList.add('hidden');
   document.getElementById('orders-view').classList.add('hidden');
   document.getElementById('actions-view').classList.add('hidden');
-  document.getElementById('inventory-view').classList.add('hidden');
 
   if (view === 'schedule') {
     document.getElementById('schedule-view').classList.remove('hidden');
@@ -94,11 +93,6 @@ function setView(view) {
   } else if (view === 'actions') {
     document.getElementById('actions-view').classList.remove('hidden');
     loadActions();
-  } else if (view === 'inventory') {
-    document.getElementById('inventory-view').classList.remove('hidden');
-    inventoryFilter = 'not-prepped';
-    inventorySearchQuery = '';
-    loadInventory();
   } else {
     document.getElementById('board').classList.remove('hidden');
     renderBoard();
@@ -1532,6 +1526,12 @@ function renderOrders() {
 
   const pending = allOrders.filter(i => !i.orderedDate && !i.inStock);
   const ordered = allOrders.filter(i => i.orderedDate || i.inStock);
+
+  if (ordersFilter === 'inventory') {
+    renderInventory(true);
+    return;
+  }
+
   const items = ordersFilter === 'pending' ? pending : ordered;
 
   // Group by jobId
@@ -1556,6 +1556,7 @@ function renderOrders() {
   html += '<div class="orders-filter-group">';
   html += `<button class="orders-filter-btn ${ordersFilter === 'pending' ? 'active' : ''}" onclick="setOrdersFilter('pending')">Pending <span class="orders-filter-count">${pending.length}</span></button>`;
   html += `<button class="orders-filter-btn ${ordersFilter === 'ordered' ? 'active' : ''}" onclick="setOrdersFilter('ordered')">Ordered <span class="orders-filter-count">${ordered.length}</span></button>`;
+  html += `<button class="orders-filter-btn ${ordersFilter === 'inventory' ? 'active' : ''}" onclick="setOrdersFilter('inventory')">Inventory</button>`;
   html += '</div>';
   html += `<input type="text" id="orders-search" class="orders-search-input" placeholder="Search job #, code or description…" autocomplete="off" value="${esc(ordersSearchQuery)}"
     oninput="ordersSearchQuery=this.value.toLowerCase().trim();renderOrders();">`;
@@ -2148,24 +2149,24 @@ let inventoryFilter = 'not-prepped'; // 'all' | 'not-prepped' | 'prepped'
 let inventorySearchQuery = '';
 
 async function loadInventory() {
-  const body = document.getElementById('inventory-body');
-  body.innerHTML = '<p style="color:#64748b;text-align:center;padding:40px;">Loading...</p>';
+  const body = document.getElementById('orders-body');
+  if (body) body.innerHTML = '<p style="color:#64748b;text-align:center;padding:40px;">Loading...</p>';
   try {
     const data = await fetch('/api/orders').then(r => r.json());
     allOrders = data.items || [];
-    renderInventory();
+    renderInventory(true);
   } catch {
-    body.innerHTML = '<p style="color:#ef4444;text-align:center;padding:40px;">Failed to load inventory</p>';
+    if (body) body.innerHTML = '<p style="color:#ef4444;text-align:center;padding:40px;">Failed to load inventory</p>';
   }
 }
 
 function setInventoryFilter(f) {
   inventoryFilter = f;
-  renderInventory();
+  renderInventory(true);
 }
 
-function renderInventory() {
-  const body = document.getElementById('inventory-body');
+function renderInventory(inOrdersTab) {
+  const body = document.getElementById('orders-body');
   if (!body) return;
 
   // Only items that have been ordered or marked in-stock
@@ -2193,14 +2194,30 @@ function renderInventory() {
     byType.get(key).items.push(item);
   }
 
+  const pending = allOrders.filter(i => !i.orderedDate && !i.inStock);
+  const ordered = allOrders.filter(i => i.orderedDate || i.inStock);
+
+  // Full orders topbar (Pending / Ordered / Inventory tabs + search + Add Item)
   let html = '<div class="orders-topbar">';
+  html += '<div class="orders-filter-group">';
+  html += `<button class="orders-filter-btn ${ordersFilter === 'pending' ? 'active' : ''}" onclick="setOrdersFilter('pending')">Pending <span class="orders-filter-count">${pending.length}</span></button>`;
+  html += `<button class="orders-filter-btn ${ordersFilter === 'ordered' ? 'active' : ''}" onclick="setOrdersFilter('ordered')">Ordered <span class="orders-filter-count">${ordered.length}</span></button>`;
+  html += `<button class="orders-filter-btn ${ordersFilter === 'inventory' ? 'active' : ''}" onclick="setOrdersFilter('inventory')">Inventory</button>`;
+  html += '</div>';
+  html += `<input type="text" id="inventory-search" class="orders-search-input" placeholder="Search job #, code or description…" autocomplete="off" value="${esc(inventorySearchQuery)}"
+    oninput="inventorySearchQuery=this.value.toLowerCase().trim();renderInventory(true);">`;
+  html += '<div class="orders-topbar-actions">';
+  html += `<button class="orders-btn orders-btn-secondary" onclick="openOrdersModal()">+ Add Item</button>`;
+  html += '</div>';
+  html += '</div>';
+
+  // Inventory-specific sub-filter row
+  html += '<div class="orders-topbar" style="border-top:1px solid rgba(255,255,255,0.05);padding-top:8px;margin-top:-4px;">';
   html += '<div class="orders-filter-group">';
   html += `<button class="orders-filter-btn ${inventoryFilter === 'all' ? 'active' : ''}" onclick="setInventoryFilter('all')">All <span class="orders-filter-count">${items.length}</span></button>`;
   html += `<button class="orders-filter-btn ${inventoryFilter === 'not-prepped' ? 'active' : ''}" onclick="setInventoryFilter('not-prepped')">Not Prepped <span class="orders-filter-count">${notPrepped}</span></button>`;
   html += `<button class="orders-filter-btn ${inventoryFilter === 'prepped' ? 'active' : ''}" onclick="setInventoryFilter('prepped')">Prepped <span class="orders-filter-count">${prepped}</span></button>`;
   html += '</div>';
-  html += `<input type="text" id="inventory-search" class="orders-search-input" placeholder="Search job #, code or description…" autocomplete="off" value="${esc(inventorySearchQuery)}"
-    oninput="inventorySearchQuery=this.value.toLowerCase().trim();renderInventory();">`;
   html += '</div>';
 
   if (!byType.size) {
@@ -2266,7 +2283,7 @@ async function markItemPrepped(id) {
     });
     const item = allOrders.find(i => i.id === id);
     if (item) item.preppedDate = today;
-    renderInventory();
+    renderInventory(true);
     showToast('Marked as prepped');
   } catch {
     showToast('Failed to update', 'error');
@@ -2282,7 +2299,7 @@ async function unmarkItemPrepped(id) {
     });
     const item = allOrders.find(i => i.id === id);
     if (item) item.preppedDate = null;
-    renderInventory();
+    renderInventory(true);
     showToast('Prepped mark removed');
   } catch {
     showToast('Failed to update', 'error');
