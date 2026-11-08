@@ -335,6 +335,42 @@ app.patch('/api/orders/:id', (req, res) => {
   res.json(item);
 });
 
+// Batch-create items from an external source (e.g. measure-matrix cutting form).
+// Pass replaceJobId + sourceTag to clear existing items for that job/source first.
+app.post('/api/orders/batch', (req, res) => {
+  const items = req.body.items;
+  const replaceJobId = req.body.replaceJobId ? String(req.body.replaceJobId).trim() : null;
+  const sourceTag = req.body.sourceTag ? String(req.body.sourceTag).trim() : null;
+  if (!Array.isArray(items)) return res.status(400).json({ error: 'items array required' });
+  if (replaceJobId && sourceTag) {
+    ordersData.items = ordersData.items.filter(
+      i => !(i.jobId === replaceJobId && i.sourceTag === sourceTag)
+    );
+  }
+  const created = [];
+  for (const raw of items) {
+    if (!raw.jobId || !raw.description) continue;
+    const item = {
+      id: randomUUID(),
+      jobId: String(raw.jobId).trim(),
+      clientName: (raw.clientName || '').trim(),
+      code: (raw.code || '').trim(),
+      description: String(raw.description).trim(),
+      colour: (raw.colour || '').trim(),
+      qty: parseInt(raw.qty) || 1,
+      supplier: (raw.supplier || '').trim(),
+      orderedDate: null,
+      inStock: !!raw.inStock,
+      sourceTag: (raw.sourceTag || '').trim(),
+      createdAt: new Date().toISOString(),
+    };
+    ordersData.items.push(item);
+    created.push(item);
+  }
+  if (created.length || (replaceJobId && sourceTag)) saveOrders();
+  res.json({ ok: true, created: created.length });
+});
+
 app.post('/api/orders/batch-order', (_req, res) => {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
   let count = 0;
