@@ -1488,6 +1488,8 @@ function closeCodeDropdown() {
 // --- Orders ---
 let allOrders = [];
 let ordersFilter = 'pending';
+// Deposit status cache: jobId -> { hasDeposit: bool|null, loading: bool }
+const depositStatusCache = {};
 let ordersSearchQuery = '';
 
 async function loadOrders() {
@@ -1496,6 +1498,8 @@ async function loadOrders() {
   try {
     const data = await fetch('/api/orders').then(r => r.json());
     allOrders = data.items || [];
+    // Clear deposit cache on reload so fresh data is fetched
+    Object.keys(depositStatusCache).forEach(k => delete depositStatusCache[k]);
     renderOrders();
   } catch {
     body.innerHTML = '<p style="color:#ef4444;text-align:center;padding:40px;">Failed to load orders</p>';
@@ -1519,6 +1523,19 @@ function toggleOrdersGroup(jobId) {
   const chevron = el.querySelector('.orders-collapse-chevron');
   if (body) body.style.display = isCollapsed ? '' : 'none';
   if (chevron) chevron.textContent = isCollapsed ? '▾' : '▸';
+}
+
+async function fetchDepositStatus(jobId) {
+  if (depositStatusCache[jobId] && depositStatusCache[jobId].loaded) return;
+  depositStatusCache[jobId] = { hasDeposit: null, loaded: false };
+  try {
+    const r = await fetch(`/api/deposit-status/${encodeURIComponent(jobId)}`);
+    const data = await r.json();
+    depositStatusCache[jobId] = { hasDeposit: data.hasDeposit, loaded: true };
+  } catch {
+    depositStatusCache[jobId] = { hasDeposit: null, loaded: true };
+  }
+  if (ordersFilter === 'pending') renderOrders();
 }
 
 function renderOrders() {
@@ -1600,13 +1617,39 @@ function renderOrders() {
         : null;
 
       const canCollapse = ordersFilter === 'ordered';
+
+      // Deposit status for pending items (from cutting form)
+      let depositPaid = true; // default true for manually-added items (no sourceTag)
+      const hasAutoItems = group.items.some(i => i.sourceTag === 'cutting-form');
+      if (ordersFilter === 'pending' && hasAutoItems) {
+        const ds = depositStatusCache[group.jobId];
+        if (!ds) {
+          fetchDepositStatus(group.jobId);
+          depositPaid = false; // show locked until loaded
+        } else {
+          depositPaid = ds.hasDeposit === true;
+        }
+      }
+
       html += `<div class="orders-job-group" id="orders-group-${esc(group.jobId)}" data-collapsed="${collapsed ? '1' : '0'}">`;
       html += `<div class="orders-job-header" ${canCollapse ? `onclick="toggleOrdersGroup('${esc(group.jobId)}')"` : ''} style="cursor:${canCollapse ? 'pointer' : 'default'};display:flex;align-items:center;gap:8px;">`;
       html += `<span class="orders-collapse-chevron" style="font-size:.75rem;color:#64748b;width:10px;flex-shrink:0;">${canCollapse ? (collapsed ? '▸' : '▾') : ''}</span>`;
       html += `<span class="orders-job-id">#${esc(group.jobId)}</span>`;
       if (group.clientName) html += `<span class="orders-job-client">${esc(group.clientName)}</span>`;
       if (installLabel) html += `<span class="orders-install-date">Install: ${esc(installLabel)}</span>`;
-      html += `<span style="margin-left:auto;font-size:.72rem;color:#64748b;">${group.items.length} item${group.items.length !== 1 ? 's' : ''}</span>`;
+      if (ordersFilter === 'pending' && hasAutoItems) {
+        const ds = depositStatusCache[group.jobId];
+        if (!ds || !ds.loaded) {
+          html += `<span class="deposit-badge deposit-loading" style="margin-left:auto;">Checking deposit…</span>`;
+        } else if (depositPaid) {
+          html += `<span class="deposit-badge deposit-paid" style="margin-left:auto;">Deposit Paid</span>`;
+        } else {
+          html += `<span class="deposit-badge deposit-unpaid" style="margin-left:auto;">Awaiting Deposit</span>`;
+        }
+        html += `<span style="font-size:.72rem;color:#64748b;">${group.items.length} item${group.items.length !== 1 ? 's' : ''}</span>`;
+      } else {
+        html += `<span style="margin-left:auto;font-size:.72rem;color:#64748b;">${group.items.length} item${group.items.length !== 1 ? 's' : ''}</span>`;
+      }
       html += '</div>';
       html += `<div class="orders-group-body" style="display:${collapsed ? 'none' : ''};">`;
       for (const item of group.items) {
@@ -1627,8 +1670,13 @@ function renderOrders() {
           html += `<span class="orders-instock-badge">In Stock</span>`;
           html += `<button class="orders-act-btn orders-act-unorder" onclick="unmarkItemInStock('${item.id}')">Undo</button>`;
         } else if (!item.orderedDate) {
-          html += `<button class="orders-act-btn orders-act-order" onclick="markItemOrdered('${item.id}')">Mark Ordered</button>`;
-          html += `<button class="orders-act-btn orders-act-instock" onclick="markItemInStock('${item.id}')">In Stock</button>`;
+          if (depositPaid) {
+            html += `<button class="orders-act-btn orders-act-order" onclick="markItemOrdered('${item.id}')">Mark Ordered</button>`;
+            html += `<button class="orders-act-btn orders-act-instock" onclick="markItemInStock('${item.id}')">In Stock</button>`;
+          } else {
+            html += `<button class="orders-act-btn orders-act-order" disabled title="Awaiting deposit" style="opacity:.35;cursor:not-allowed;">Mark Ordered</button>`;
+            html += `<button class="orders-act-btn orders-act-instock" disabled title="Awaiting deposit" style="opacity:.35;cursor:not-allowed;">In Stock</button>`;
+          }
         } else {
           const d = new Date(item.orderedDate + 'T00:00:00');
           const dateStr = d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });

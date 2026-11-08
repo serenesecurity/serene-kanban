@@ -336,39 +336,69 @@ app.patch('/api/orders/:id', (req, res) => {
 });
 
 // Batch-create items from an external source (e.g. measure-matrix cutting form).
-// Pass replaceJobId + sourceTag to clear existing items for that job/source first.
+// Pass replaceJobId + sourceTag to replace existing items for that job/source,
+// preserving orderedDate/inStock/preppedDate on matched items (by description+colour).
 app.post('/api/orders/batch', (req, res) => {
   const items = req.body.items;
   const replaceJobId = req.body.replaceJobId ? String(req.body.replaceJobId).trim() : null;
   const sourceTag = req.body.sourceTag ? String(req.body.sourceTag).trim() : null;
   if (!Array.isArray(items)) return res.status(400).json({ error: 'items array required' });
+
+  // Build a lookup of existing items to preserve their order/stock/prep state
+  const existingByKey = new Map();
   if (replaceJobId && sourceTag) {
+    for (const ex of ordersData.items) {
+      if (ex.jobId === replaceJobId && ex.sourceTag === sourceTag) {
+        const key = `${ex.description}||${ex.colour}`;
+        existingByKey.set(key, ex);
+      }
+    }
     ordersData.items = ordersData.items.filter(
       i => !(i.jobId === replaceJobId && i.sourceTag === sourceTag)
     );
   }
+
   const created = [];
   for (const raw of items) {
     if (!raw.jobId || !raw.description) continue;
+    const desc = String(raw.description).trim();
+    const colour = (raw.colour || '').trim();
+    const existing = existingByKey.get(`${desc}||${colour}`);
     const item = {
-      id: randomUUID(),
+      id: existing ? existing.id : randomUUID(),
       jobId: String(raw.jobId).trim(),
+      jobUuid: (raw.jobUuid || '').trim(),
       clientName: (raw.clientName || '').trim(),
       code: (raw.code || '').trim(),
-      description: String(raw.description).trim(),
-      colour: (raw.colour || '').trim(),
+      description: desc,
+      colour,
       qty: parseInt(raw.qty) || 1,
       supplier: (raw.supplier || '').trim(),
-      orderedDate: null,
-      inStock: !!raw.inStock,
+      // Preserve existing order/stock/prep state if item was already actioned
+      orderedDate: existing?.orderedDate ?? null,
+      inStock: existing ? existing.inStock : !!raw.inStock,
+      preppedDate: existing?.preppedDate ?? null,
       sourceTag: (raw.sourceTag || '').trim(),
-      createdAt: new Date().toISOString(),
+      createdAt: existing?.createdAt ?? new Date().toISOString(),
     };
     ordersData.items.push(item);
     created.push(item);
   }
   if (created.length || (replaceJobId && sourceTag)) saveOrders();
   res.json({ ok: true, created: created.length });
+});
+
+// Deposit status for a job — checks SM8 cache (same logic as scheduler)
+app.get('/api/deposit-status/:jobId', (req, res) => {
+  const jobId = req.params.jobId;
+  const jobs = cache.getJobs();
+  const job = jobs.find(j => String(j.generated_job_id) === String(jobId));
+  if (!job) return res.json({ hasDeposit: null, found: false });
+  const hasPartialInvoice = (job.materials || []).some(
+    m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
+  );
+  const hasPayment = job.payment_date && !job.payment_date.startsWith('0000');
+  res.json({ hasDeposit: hasPartialInvoice || hasPayment, found: true, queue: job.queue_name || '' });
 });
 
 app.post('/api/orders/batch-order', (_req, res) => {
