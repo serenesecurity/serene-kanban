@@ -1641,12 +1641,13 @@ function renderOrders() {
         const ds = depositStatusCache[group.jobId];
         if (!ds || !ds.loaded) {
           html += `<span class="deposit-badge deposit-loading" style="margin-left:auto;">Checking deposit…</span>`;
-        } else if (depositPaid) {
-          html += `<span class="deposit-badge deposit-paid" style="margin-left:auto;">Deposit Paid</span>`;
-        } else {
+          html += `<span style="font-size:.72rem;color:#64748b;">${group.items.length} item${group.items.length !== 1 ? 's' : ''}</span>`;
+        } else if (!depositPaid) {
           html += `<span class="deposit-badge deposit-unpaid" style="margin-left:auto;">Awaiting Deposit</span>`;
+          html += `<span style="font-size:.72rem;color:#64748b;">${group.items.length} item${group.items.length !== 1 ? 's' : ''}</span>`;
+        } else {
+          html += `<span style="margin-left:auto;font-size:.72rem;color:#64748b;">${group.items.length} item${group.items.length !== 1 ? 's' : ''}</span>`;
         }
-        html += `<span style="font-size:.72rem;color:#64748b;">${group.items.length} item${group.items.length !== 1 ? 's' : ''}</span>`;
       } else {
         html += `<span style="margin-left:auto;font-size:.72rem;color:#64748b;">${group.items.length} item${group.items.length !== 1 ? 's' : ''}</span>`;
       }
