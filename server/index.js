@@ -369,7 +369,7 @@ app.post('/api/orders/batch', (req, res) => {
       jobId: String(raw.jobId).trim(),
       jobUuid: (raw.jobUuid || '').trim(),
       clientName: (raw.clientName || '').trim(),
-      code: (raw.code || '').trim(),
+      code: (raw.code || existing?.code || '').trim(),
       description: desc,
       colour,
       qty: parseInt(raw.qty) || 1,
