@@ -142,7 +142,10 @@ app.get('/api/scheduler', (_req, res) => {
       const bookedDate = hasBooking ? j.job_is_scheduled_until_stamp.slice(0, 10) : null;
       const isBooked = hasBooking && bookedDate >= todayStr && sentDateStr && bookedDate >= sentDateStr;
       const hasPartialInvoice = (j.materials || []).some(
-        m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
+        m => m.active !== false && /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
+      );
+      const hasDepositLine = (j.materials || []).some(
+        m => /^deposit$/i.test(m.name) && parseFloat(m.quantity) < 0
       );
       const hasPayment = j.payment_date && !j.payment_date.startsWith('0000');
 
@@ -158,7 +161,7 @@ app.get('/api/scheduler', (_req, res) => {
         daysSinceSent,
         readyWindowStart,
         readyWindowEnd,
-        hasDeposit: hasPartialInvoice || hasPayment,
+        hasDeposit: hasPartialInvoice || hasDepositLine || hasPayment,
         isBooked,
         bookedDate,
         amount: parseFloat(j.total_invoice_amount_combined ?? j.total_invoice_amount ?? 0),

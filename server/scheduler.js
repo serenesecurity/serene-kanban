@@ -69,7 +69,7 @@ function deduplicateMaterials(materials) {
 function estimateFromMaterials(materials) {
   if (!materials || !materials.length) return { hours: 2, items: [], method: 'default' };
 
-  const deduped = deduplicateMaterials(materials);
+  const deduped = deduplicateMaterials(materials.filter(m => m.active !== false));
   const items = [];
   let totalHours = 0;
 
@@ -212,7 +212,7 @@ export function buildSchedule(jobs, overrides = {}) {
     if (!j.generated_job_id || j.generated_job_id === 'SAMPLE') return false;
     if (!j.lat || !j.lng) return false;
     const hasPartialInvoice = (j.materials || []).some(
-      m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
+      m => m.active !== false && /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
     );
     const hasDepositLine = (j.materials || []).some(
       m => /^deposit$/i.test(m.name) && parseFloat(m.quantity) < 0

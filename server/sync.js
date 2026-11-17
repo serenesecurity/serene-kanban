@@ -30,11 +30,11 @@ export function createSyncManager(sm8, cache, sse) {
       const materialsMap = new Map();
       for (const m of allMaterials) {
         if (!m.job_uuid) continue;
-        if (String(m.active) === '0') continue;
         if (!materialsMap.has(m.job_uuid)) materialsMap.set(m.job_uuid, []);
         materialsMap.get(m.job_uuid).push({
           name: m.name || '',
           quantity: parseFloat(m.quantity) || 0,
+          active: String(m.active) !== '0',
           edit_date: m.edit_date || '',
         });
       }
