@@ -397,8 +397,11 @@ app.get('/api/deposit-status/:jobId', (req, res) => {
   const hasPartialInvoice = (job.materials || []).some(
     m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
   );
+  const hasDepositLine = (job.materials || []).some(
+    m => /^deposit$/i.test(m.name) && parseFloat(m.quantity) < 0
+  );
   const hasPayment = job.payment_date && !job.payment_date.startsWith('0000');
-  res.json({ hasDeposit: hasPartialInvoice || hasPayment, found: true, queue: job.queue_name || '' });
+  res.json({ hasDeposit: hasPartialInvoice || hasDepositLine || hasPayment, found: true, queue: job.queue_name || '' });
 });
 
 app.post('/api/orders/batch-order', (_req, res) => {

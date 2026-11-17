@@ -179,6 +179,9 @@ export function buildSchedule(jobs, overrides = {}) {
     const hasPartialInvoice = (j.materials || []).some(
       m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
     );
+    const hasDepositLine = (j.materials || []).some(
+      m => /^deposit$/i.test(m.name) && parseFloat(m.quantity) < 0
+    );
     const hasPayment = j.payment_date && !j.payment_date.startsWith('0000');
 
     bookedJobs.push({
@@ -193,7 +196,7 @@ export function buildSchedule(jobs, overrides = {}) {
       items: est.items,
       estMethod: est.method,
       queue: j.queue_name || '',
-      hasDeposit: hasPartialInvoice || hasPayment,
+      hasDeposit: hasPartialInvoice || hasDepositLine || hasPayment,
       hasSuffix: hasPartialInvoice,
       depositDate: findDepositDate(j.materials),
       booked: true,
@@ -211,8 +214,11 @@ export function buildSchedule(jobs, overrides = {}) {
     const hasPartialInvoice = (j.materials || []).some(
       m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
     );
+    const hasDepositLine = (j.materials || []).some(
+      m => /^deposit$/i.test(m.name) && parseFloat(m.quantity) < 0
+    );
     const hasPayment = j.payment_date && !j.payment_date.startsWith('0000');
-    return hasPartialInvoice || hasPayment;
+    return hasPartialInvoice || hasDepositLine || hasPayment;
   });
 
   // All deposit-confirmed WOs are eligible for auto-scheduling.
@@ -226,6 +232,9 @@ export function buildSchedule(jobs, overrides = {}) {
   const candidates = eligible.map((j) => {
     const hasPartialInvoice = (j.materials || []).some(
       m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
+    );
+    const hasDepositLine = (j.materials || []).some(
+      m => /^deposit$/i.test(m.name) && parseFloat(m.quantity) < 0
     );
     const hasSuffix = hasPartialInvoice;
     const hasPayment = j.payment_date && !j.payment_date.startsWith('0000');
@@ -245,7 +254,7 @@ export function buildSchedule(jobs, overrides = {}) {
       items: est.items,
       estMethod: est.method,
       queue: j.queue_name || '',
-      hasDeposit: hasSuffix || hasPayment,
+      hasDeposit: hasSuffix || hasDepositLine || hasPayment,
       hasSuffix,
       depositDate,
       orderFormDate: j.order_form_sent_date ? new Date(j.order_form_sent_date) : null,
@@ -504,6 +513,9 @@ export function buildSchedule(jobs, overrides = {}) {
     const hasPartialInvoice = (j.materials || []).some(
       m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
     );
+    const hasDepositLine = (j.materials || []).some(
+      m => /^deposit$/i.test(m.name) && parseFloat(m.quantity) < 0
+    );
     const hasPayment = j.payment_date && !j.payment_date.startsWith('0000');
 
     if (ov?.installDate) {
@@ -514,7 +526,7 @@ export function buildSchedule(jobs, overrides = {}) {
         uuid: j.uuid, jobId: j.generated_job_id, client: j.company_name || 'Unknown',
         address: j.job_address || '', lat: parseFloat(j.lat || 0), lng: parseFloat(j.lng || 0),
         amount: parseFloat(j.total_invoice_amount_combined ?? j.total_invoice_amount ?? 0), hours: est.hours, items: est.items,
-        estMethod: est.method, queue: j.queue_name || '', hasDeposit: hasPartialInvoice || hasPayment,
+        estMethod: est.method, queue: j.queue_name || '', hasDeposit: hasPartialInvoice || hasDepositLine || hasPayment,
         hasSuffix: hasPartialInvoice, depositDate: findDepositDate(j.materials), booked: false,
       };
       dayJobs.get(dayStr).push(cand);
@@ -525,7 +537,7 @@ export function buildSchedule(jobs, overrides = {}) {
     const orderSent = j.order_form_sent_date ? Math.floor((today - new Date(j.order_form_sent_date)) / (1000 * 60 * 60 * 24)) : null;
     unscheduled.push({
       uuid: j.uuid, jobId: j.generated_job_id, client: j.company_name || 'Unknown',
-      hours: est.hours, items: est.items, hasDeposit: hasPartialInvoice || hasPayment, orderDaysAgo: orderSent,
+      hours: est.hours, items: est.items, hasDeposit: hasPartialInvoice || hasDepositLine || hasPayment, orderDaysAgo: orderSent,
     });
   }
 
