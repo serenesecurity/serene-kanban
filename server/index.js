@@ -371,7 +371,7 @@ app.post('/api/orders/batch', (req, res) => {
       id: existing ? existing.id : randomUUID(),
       jobId: String(raw.jobId).trim(),
       jobUuid: (raw.jobUuid || '').trim(),
-      clientName: (raw.clientName || '').trim(),
+      clientName: (raw.clientName || (() => { const j = cache.getJobs().find(j => String(j.generated_job_id) === String(raw.jobId)); return j?.company_name || ''; })()).trim(),
       code: (raw.code || existing?.code || '').trim(),
       description: desc,
       colour,

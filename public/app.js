@@ -1554,7 +1554,10 @@ function renderOrders() {
   // Group by jobId
   const byJob = new Map();
   for (const item of items) {
-    if (!byJob.has(item.jobId)) byJob.set(item.jobId, { jobId: item.jobId, clientName: item.clientName, items: [], latestOrderedDate: item.orderedDate || '' });
+    if (!byJob.has(item.jobId)) {
+      const clientName = item.clientName || (allJobs.find(j => String(j.generated_job_id) === String(item.jobId))?.company_name) || '';
+      byJob.set(item.jobId, { jobId: item.jobId, clientName, items: [], latestOrderedDate: item.orderedDate || '' });
+    }
     const g = byJob.get(item.jobId);
     g.items.push(item);
     if (item.orderedDate && item.orderedDate > g.latestOrderedDate) g.latestOrderedDate = item.orderedDate;
