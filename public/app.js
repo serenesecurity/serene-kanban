@@ -1621,14 +1621,14 @@ function renderOrders() {
 
       const canCollapse = ordersFilter === 'ordered';
 
-      // Deposit status for pending items (from cutting form)
-      let depositPaid = true; // default true for manually-added items (no sourceTag)
+      // Deposit status for all pending items
+      let depositPaid = true;
       const hasAutoItems = group.items.some(i => i.sourceTag === 'cutting-form');
-      if (ordersFilter === 'pending' && hasAutoItems) {
+      if (ordersFilter === 'pending') {
         const ds = depositStatusCache[group.jobId];
         if (!ds) {
           fetchDepositStatus(group.jobId);
-          depositPaid = false; // show locked until loaded
+          depositPaid = false;
         } else {
           depositPaid = ds.hasDeposit === true;
         }
@@ -1640,7 +1640,7 @@ function renderOrders() {
       html += `<span class="orders-job-id">#${esc(group.jobId)}</span>`;
       if (group.clientName) html += `<span class="orders-job-client">${esc(group.clientName)}</span>`;
       if (installLabel) html += `<span class="orders-install-date">Install: ${esc(installLabel)}</span>`;
-      if (ordersFilter === 'pending' && hasAutoItems) {
+      if (ordersFilter === 'pending') {
         const ds = depositStatusCache[group.jobId];
         if (!ds || !ds.loaded) {
           html += `<span class="deposit-badge deposit-loading" style="margin-left:auto;">Checking deposit…</span>`;
@@ -1649,7 +1649,8 @@ function renderOrders() {
           html += `<span class="deposit-badge deposit-unpaid" style="margin-left:auto;">Awaiting Deposit</span>`;
           html += `<span style="font-size:.72rem;color:#64748b;">${group.items.length} item${group.items.length !== 1 ? 's' : ''}</span>`;
         } else {
-          html += `<span style="margin-left:auto;font-size:.72rem;color:#64748b;">${group.items.length} item${group.items.length !== 1 ? 's' : ''}</span>`;
+          html += `<span class="deposit-badge deposit-paid" style="margin-left:auto;">Deposit Received</span>`;
+          html += `<span style="font-size:.72rem;color:#64748b;">${group.items.length} item${group.items.length !== 1 ? 's' : ''}</span>`;
         }
       } else {
         html += `<span style="margin-left:auto;font-size:.72rem;color:#64748b;">${group.items.length} item${group.items.length !== 1 ? 's' : ''}</span>`;
