@@ -2290,8 +2290,8 @@ function renderInventory(inOrdersTab) {
       for (const item of group.items) {
         html += '<div class="orders-item">';
         html += '<div class="orders-item-main">';
-        html += `<a href="https://go.servicem8.com/job/${item.jobId}" target="_blank" class="orders-job-link" style="font-size:.8rem;">#${esc(item.jobId)}</a>`;
-        if (item.clientName) html += `<span class="orders-item-colour">${esc(item.clientName)}</span>`;
+        html += `<a href="https://go.servicem8.com/job/${item.jobId}" target="_blank" class="orders-job-link" style="font-size:.95rem;font-weight:600;">#${esc(item.jobId)}</a>`;
+        if (item.clientName) html += `<span class="inv-client-name">${esc(item.clientName)}</span>`;
         if (item.qty && item.qty > 1) html += `<span class="orders-item-qty">×${item.qty}</span>`;
         html += '</div>';
         html += '<div class="orders-item-actions">';

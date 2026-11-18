@@ -739,6 +739,7 @@ body {
 .orders-item-code { font-size: 11px; font-family: monospace; font-weight: 700; color: var(--text-dim); background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 3px; white-space: nowrap; }
 .orders-item-desc { font-size: 14px; color: var(--text); }
 .orders-item-colour { font-size: 11px; color: var(--text-muted); }
+.inv-client-name { font-size: 13px; color: var(--text); }
 .orders-item-qty { font-size: 12px; font-weight: 700; color: var(--accent); }
 .orders-item-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .orders-act-btn {
