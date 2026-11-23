@@ -213,6 +213,7 @@ export function buildSchedule(jobs, overrides = {}) {
     if (!j.lat || !j.lng) return false;
     const hasPartialInvoice = (j.materials || []).some(
       m => m.active !== false && /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
+    ) && j.suffix_paid
     );
     const hasDepositLine = (j.materials || []).some(
       m => /^deposit$/i.test(m.name) && parseFloat(m.quantity) < 0

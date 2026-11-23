@@ -143,7 +143,7 @@ app.get('/api/scheduler', (_req, res) => {
       const isBooked = hasBooking && bookedDate >= todayStr && sentDateStr && bookedDate >= sentDateStr;
       const hasPartialInvoice = (j.materials || []).some(
         m => m.active !== false && /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
-      );
+      ) && j.suffix_paid;
       const hasDepositLine = (j.materials || []).some(
         m => /^deposit$/i.test(m.name) && parseFloat(m.quantity) < 0
       );
@@ -399,7 +399,7 @@ app.get('/api/deposit-status/:jobId', (req, res) => {
   if (!job) return res.json({ hasDeposit: null, found: false });
   const hasPartialInvoice = (job.materials || []).some(
     m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
-  );
+  ) && job.suffix_paid;
   const hasDepositLine = (job.materials || []).some(
     m => /^deposit$/i.test(m.name) && parseFloat(m.quantity) < 0
   );

@@ -51,14 +51,16 @@ export function createSyncManager(sm8, cache, sse) {
         if (!existing || ts > existing) orderFormMap.set(cl.job_uuid, ts);
       }
 
-      // Build suffix amount map: base job number → sum of suffix job amounts (e.g. 1369A → added to 1369)
+      // Build suffix amount map + paid set: base job number → sum of suffix amounts / whether any suffix is paid
       const suffixAmountMap = new Map();
+      const suffixPaidSet = new Set();
       for (const j of allJobs) {
         const id = j.generated_job_id || '';
         if (/^\d+[A-Za-z]+$/.test(id)) {
           const base = id.replace(/[A-Za-z]+$/, '');
           const amt = parseFloat(j.total_invoice_amount || 0);
           suffixAmountMap.set(base, (suffixAmountMap.get(base) || 0) + amt);
+          if (j.payment_date && !j.payment_date.startsWith('0000')) suffixPaidSet.add(base);
         }
       }
 
@@ -73,6 +75,7 @@ export function createSyncManager(sm8, cache, sse) {
             materials: materialsMap.get(j.uuid) || [],
             order_form_sent_date: orderFormMap.get(j.uuid) || null,
             total_invoice_amount_combined: parseFloat(j.total_invoice_amount || 0) + suffixAmt,
+            suffix_paid: suffixPaidSet.has(j.generated_job_id || ''),
           };
         });
 
