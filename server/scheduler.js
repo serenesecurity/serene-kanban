@@ -176,7 +176,7 @@ export function buildSchedule(jobs, overrides = {}) {
     if (bookedDate < today) continue;
 
     const est = estimateFromMaterials(j.materials);
-    const hasPartialInvoice = (j.materials || []).some(
+    const hasPartialInvoice = j.suffix_paid && (j.materials || []).some(
       m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
     );
     const hasDepositLine = (j.materials || []).some(
@@ -211,9 +211,8 @@ export function buildSchedule(jobs, overrides = {}) {
     if (j.status !== 'Work Order') return false;
     if (!j.generated_job_id || j.generated_job_id === 'SAMPLE') return false;
     if (!j.lat || !j.lng) return false;
-    const hasPartialInvoice = (j.materials || []).some(
+    const hasPartialInvoice = j.suffix_paid && (j.materials || []).some(
       m => m.active !== false && /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
-    ) && j.suffix_paid
     );
     const hasDepositLine = (j.materials || []).some(
       m => /^deposit$/i.test(m.name) && parseFloat(m.quantity) < 0
@@ -231,7 +230,7 @@ export function buildSchedule(jobs, overrides = {}) {
   if (!eligible.length && !bookedJobs.length && !sidebarJobs.length) return { scheduled: [], unscheduled: [], weeks: [], totalEligible: 0 };
 
   const candidates = eligible.map((j) => {
-    const hasPartialInvoice = (j.materials || []).some(
+    const hasPartialInvoice = j.suffix_paid && (j.materials || []).some(
       m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
     );
     const hasDepositLine = (j.materials || []).some(
@@ -511,7 +510,7 @@ export function buildSchedule(jobs, overrides = {}) {
     const ov = overrides[j.uuid];
     if (ov?.removed) continue;
     const est = estimateFromMaterials(j.materials);
-    const hasPartialInvoice = (j.materials || []).some(
+    const hasPartialInvoice = j.suffix_paid && (j.materials || []).some(
       m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
     );
     const hasDepositLine = (j.materials || []).some(
