@@ -2029,6 +2029,13 @@ function searchCatalogue(term) {
   return [...exact, ...prefix, ...desc].slice(0, 16);
 }
 
+const SUPPLIERS = ['BJs','Bunnings','Canbrax','CommandeX','CWS Systems','Darley','Other','Starline','Sydney Tool','Total Tools'];
+
+function supplierSelect(value = '') {
+  const opts = SUPPLIERS.map(s => `<option value="${s}"${s === value ? ' selected' : ''}>${s}</option>`).join('');
+  return `<select class="orders-form-input oi-supplier"><option value="">-- Supplier --</option>${opts}</select>`;
+}
+
 let _acDropdown = null;
 
 function initCodeInput(input) {
@@ -2080,8 +2087,8 @@ function showCodeDropdown(input) {
       if (supplier === 'CommandeX') {
         const colourInput = tr.querySelector('.oi-colour');
         if (colourInput && !colourInput.value && colour) colourInput.value = colour;
-        const supplierInput = document.getElementById('order-supplier-input');
-        if (supplierInput && !supplierInput.value) supplierInput.value = 'CommandeX';
+        const supplierSel = tr.querySelector('.oi-supplier');
+        if (supplierSel && !supplierSel.value) supplierSel.value = 'CommandeX';
       }
       closeCodeDropdown();
       descInput?.focus();
@@ -2321,7 +2328,6 @@ function renderOrders() {
 
 function showAddItemModal() {
   document.getElementById('order-job-input').value = '';
-  document.getElementById('order-supplier-input').value = '';
   document.getElementById('order-job-hint').textContent = '';
   const tbody = document.getElementById('order-items-tbody');
   tbody.innerHTML = `
@@ -2329,6 +2335,7 @@ function showAddItemModal() {
       <td><input type="text" class="orders-form-input oi-code" placeholder="AN2550" autocomplete="off"></td>
       <td><input type="text" class="orders-form-input oi-desc" placeholder="Description"></td>
       <td><input type="text" class="orders-form-input oi-colour" placeholder="Black"></td>
+      <td>${supplierSelect()}</td>
       <td><input type="number" class="orders-form-input oi-qty" value="1" min="1"></td>
       <td><button class="orders-row-remove" onclick="removeOrderRow(this)">×</button></td>
     </tr>`;
@@ -2344,6 +2351,7 @@ function addOrderRow() {
     <td><input type="text" class="orders-form-input oi-code" placeholder="AN2550" autocomplete="off"></td>
     <td><input type="text" class="orders-form-input oi-desc" placeholder="Description"></td>
     <td><input type="text" class="orders-form-input oi-colour" placeholder="Black"></td>
+    <td>${supplierSelect()}</td>
     <td><input type="number" class="orders-form-input oi-qty" value="1" min="1"></td>
     <td><button class="orders-row-remove" onclick="removeOrderRow(this)">×</button></td>`;
   tbody.appendChild(tr);
@@ -2379,7 +2387,6 @@ function onOrderJobInput(val) {
 
 async function submitAddItem() {
   const jobIdRaw = document.getElementById('order-job-input').value.trim().replace(/^#/, '');
-  const supplier = document.getElementById('order-supplier-input').value.trim();
   if (!jobIdRaw) { showToast('Enter a job number', 'error'); return; }
 
   const job = allJobs.find(j => (j.generated_job_id || '').toLowerCase() === jobIdRaw.toLowerCase());
@@ -2393,6 +2400,7 @@ async function submitAddItem() {
       code: tr.querySelector('.oi-code')?.value.trim() || '',
       description: desc,
       colour: tr.querySelector('.oi-colour')?.value.trim() || '',
+      supplier: tr.querySelector('.oi-supplier')?.value || '',
       qty: parseInt(tr.querySelector('.oi-qty')?.value) || 1,
     });
   });
@@ -2403,7 +2411,7 @@ async function submitAddItem() {
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: jobIdRaw, clientName, supplier, ...row }),
+        body: JSON.stringify({ jobId: jobIdRaw, clientName, ...row }),
       });
       const item = await res.json();
       allOrders.push(item);

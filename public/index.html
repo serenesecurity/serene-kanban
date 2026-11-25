@@ -134,23 +134,20 @@
               <input id="order-job-input" type="text" class="orders-form-input" placeholder="e.g. 1694" oninput="onOrderJobInput(this.value)" autocomplete="off">
               <div id="order-job-hint" class="orders-form-hint"></div>
             </div>
-            <div class="orders-form-field" style="flex:1;min-width:140px;">
-              <label class="orders-form-label">Supplier</label>
-              <input id="order-supplier-input" type="text" class="orders-form-input" placeholder="e.g. Darley" autocomplete="off">
-            </div>
           </div>
           <div class="orders-form-field">
             <label class="orders-form-label">Items</label>
             <div style="overflow-x:auto;">
               <table class="oi-table">
                 <thead><tr>
-                  <th>Code</th><th>Description</th><th>Colour</th><th>Qty</th><th></th>
+                  <th>Code</th><th>Description</th><th>Colour</th><th>Supplier</th><th>Qty</th><th></th>
                 </tr></thead>
                 <tbody id="order-items-tbody">
                   <tr>
                     <td><input type="text" class="orders-form-input oi-code" placeholder="AN2550"></td>
                     <td><input type="text" class="orders-form-input oi-desc" placeholder="Description"></td>
                     <td><input type="text" class="orders-form-input oi-colour" placeholder="Black"></td>
+                    <td></td>
                     <td><input type="number" class="orders-form-input oi-qty" value="1" min="1"></td>
                     <td><button class="orders-row-remove" onclick="removeOrderRow(this)">×</button></td>
                   </tr>
