@@ -141,7 +141,7 @@ app.get('/api/scheduler', (_req, res) => {
       const hasBooking = j.job_is_scheduled_until_stamp && !j.job_is_scheduled_until_stamp.startsWith('0000');
       const bookedDate = hasBooking ? j.job_is_scheduled_until_stamp.slice(0, 10) : null;
       const isBooked = hasBooking && bookedDate >= todayStr && sentDateStr && bookedDate >= sentDateStr;
-      const hasPartialInvoice = (j.materials || []).some(
+      const hasPartialInvoice = j.suffix_paid && (j.materials || []).some(
         m => m.active !== false && /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
       );
       const hasDepositLine = (j.materials || []).some(
@@ -397,7 +397,7 @@ app.get('/api/deposit-status/:jobId', (req, res) => {
   const jobs = cache.getJobs();
   const job = jobs.find(j => String(j.generated_job_id) === String(jobId));
   if (!job) return res.json({ hasDeposit: null, found: false });
-  const hasPartialInvoice = (job.materials || []).some(
+  const hasPartialInvoice = job.suffix_paid && (job.materials || []).some(
     m => /^partial\s*invoice\s*#.*[A-Za-z]$/i.test(m.name)
   );
   const hasDepositLine = (job.materials || []).some(

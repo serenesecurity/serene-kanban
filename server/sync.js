@@ -62,6 +62,16 @@ export function createSyncManager(sm8, cache, sse) {
         }
       }
 
+      // Base job numbers whose suffix invoice (e.g. 2264A) has actually been paid
+      const suffixPaidSet = new Set();
+      for (const j of allJobs) {
+        const id = j.generated_job_id || '';
+        if (/^\d+[A-Za-z]+$/.test(id)) {
+          const base = id.replace(/[A-Za-z]+$/, '');
+          if (j.payment_date && !j.payment_date.startsWith('0000')) suffixPaidSet.add(base);
+        }
+      }
+
       const jobs = allJobs
         .filter((j) => VALID_STATUSES.has(j.status))
         .map((j) => {
@@ -73,6 +83,7 @@ export function createSyncManager(sm8, cache, sse) {
             materials: materialsMap.get(j.uuid) || [],
             order_form_sent_date: orderFormMap.get(j.uuid) || null,
             total_invoice_amount_combined: parseFloat(j.total_invoice_amount || 0) + suffixAmt,
+            suffix_paid: suffixPaidSet.has(j.generated_job_id || ''),
           };
         });
 
