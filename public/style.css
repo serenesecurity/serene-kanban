@@ -801,6 +801,7 @@ body {
 .oi-ac-item:hover, .oi-ac-item.active { background: #334155; }
 .oi-ac-code { font-family: monospace; font-size: 11px; color: #38bdf8; flex-shrink: 0; min-width: 80px; }
 .oi-ac-desc { color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oi-ac-supplier { font-size: 10px; color: #f59e0b; background: rgba(245,158,11,.15); border-radius: 3px; padding: 1px 5px; flex-shrink: 0; }
 /* Orders form */
 .orders-form { display: flex; flex-direction: column; gap: 16px; }
 .orders-form-field { display: flex; flex-direction: column; gap: 6px; }
