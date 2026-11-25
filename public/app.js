@@ -2029,7 +2029,7 @@ function searchCatalogue(term) {
   return [...exact, ...prefix, ...desc].slice(0, 16);
 }
 
-const SUPPLIERS = ['BJs','Bunnings','Canbrax','CommandeX','CWS Systems','Darley','Other','Starline','Sydney Tool','Total Tools'];
+const SUPPLIERS = ['BJs','Bunnings','Canbrax','CommandeX','CWS Systems','Darley','Starline','Sydney Tool','Total Tools','Other'];
 
 function supplierSelect(value = '') {
   const opts = SUPPLIERS.map(s => `<option value="${s}"${s === value ? ' selected' : ''}>${s}</option>`).join('');
