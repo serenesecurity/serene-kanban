@@ -2084,11 +2084,11 @@ function showCodeDropdown(input) {
       input.value = code;
       const descInput = tr.querySelector('.oi-desc');
       if (descInput && !descInput.value) descInput.value = description;
-      if (supplier === 'CommandeX') {
+      if (supplier) {
         const colourInput = tr.querySelector('.oi-colour');
         if (colourInput && !colourInput.value && colour) colourInput.value = colour;
         const supplierSel = tr.querySelector('.oi-supplier');
-        if (supplierSel && !supplierSel.value) supplierSel.value = 'CommandeX';
+        if (supplierSel && !supplierSel.value) supplierSel.value = supplier;
       }
       closeCodeDropdown();
       descInput?.focus();
