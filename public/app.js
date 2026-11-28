@@ -782,7 +782,7 @@ function renderScheduler(data) {
     <th>Suburb</th>
     <th>Ordered</th>
     <th>Days</th>
-    <th>Ready Window</th>
+    <th>ETA</th>
     <th>Deposit</th>
     <th>Parts</th>
   </tr></thead><tbody>`;
