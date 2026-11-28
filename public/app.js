@@ -738,7 +738,22 @@ function renderScheduler(data) {
 
   // Sort: Ready first, then Coming Soon, Ordered, Not Sent, Booked
   const statusOrder = { 'Ready': 0, 'Coming Soon': 1, 'Ordered': 2, 'Not Sent': 3, 'Booked': 4 };
-  rows.sort((a, b) => statusOrder[a.status] - statusOrder[b.status] || (b.daysSinceSent ?? -1) - (a.daysSinceSent ?? -1));
+  rows.sort((a, b) => {
+    const sg = statusOrder[a.status] - statusOrder[b.status];
+    if (sg !== 0) return sg;
+    // Ordered: sort by soonest ready window date first
+    if (a.status === 'Ordered') {
+      const readyMs = r => {
+        if (!r.orderFormSentDate) return Infinity;
+        const { winStart } = readyWindow(r);
+        const d = new Date(r.orderFormSentDate + 'T00:00:00');
+        d.setDate(d.getDate() + winStart);
+        return d.getTime();
+      };
+      return readyMs(a) - readyMs(b);
+    }
+    return (b.daysSinceSent ?? -1) - (a.daysSinceSent ?? -1);
+  });
 
   // Count by status
   const counts = {};
