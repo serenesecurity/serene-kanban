@@ -20,6 +20,7 @@ import { createServiceM8Client } from './servicem8.js';
 import { createSyncManager } from './sync.js';
 import { createCache } from './cache.js';
 import { buildSchedule } from './scheduler.js';
+import { isCanbraxJob, canbraxDeliveryDate } from './canbrax.js';
 import { readFileSync as readF, writeFileSync as writeF } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -138,6 +139,12 @@ app.get('/api/scheduler', (_req, res) => {
       // Ready window: 18-25 days (2.5-3.5 weeks)
       const readyWindowStart = 18;
       const readyWindowEnd = 25;
+      // Canbrax products (SecureView / Xceed / BasiX) arrive on a fixed delivery Monday
+      const isCanbrax = isCanbraxJob(j.materials);
+      const canbraxDelivery = isCanbrax && sentDateStr ? canbraxDeliveryDate(sentDateStr) : null;
+      const daysToDelivery = canbraxDelivery
+        ? Math.round((new Date(canbraxDelivery) - new Date(sentDateStr)) / (1000 * 60 * 60 * 24))
+        : null;
       const hasBooking = j.job_is_scheduled_until_stamp && !j.job_is_scheduled_until_stamp.startsWith('0000');
       const bookedDate = hasBooking ? j.job_is_scheduled_until_stamp.slice(0, 10) : null;
       const isBooked = hasBooking && bookedDate >= todayStr && sentDateStr && bookedDate >= sentDateStr;
@@ -161,6 +168,9 @@ app.get('/api/scheduler', (_req, res) => {
         daysSinceSent,
         readyWindowStart,
         readyWindowEnd,
+        isCanbrax,
+        canbraxDelivery,
+        daysToDelivery,
         hasDeposit: hasPartialInvoice || hasDepositLine || hasPayment,
         isBooked,
         bookedDate,

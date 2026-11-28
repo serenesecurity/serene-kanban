@@ -705,6 +705,14 @@ async function loadScheduler() {
   }
 }
 
+// Ready window in days from order. Canbrax jobs are ready from their delivery Monday onwards.
+function readyWindow(job) {
+  if (job.isCanbrax && job.daysToDelivery != null) {
+    return { winStart: job.daysToDelivery, winEnd: job.daysToDelivery };
+  }
+  return { winStart: job.readyWindowStart || 18, winEnd: job.readyWindowEnd || 25 };
+}
+
 function renderScheduler(data) {
   const body = document.getElementById('schedule-body');
   if (!data.items || !data.items.length) {
@@ -718,8 +726,7 @@ function renderScheduler(data) {
 
   // Assign status to each deposit-confirmed job
   const rows = depositItems.map(job => {
-    const winStart = job.readyWindowStart || 18;
-    const winEnd = job.readyWindowEnd || 25;
+    const { winStart } = readyWindow(job);
     let status, statusCls;
     if (job.isBooked) { status = 'Booked'; statusCls = 'st-booked'; }
     else if (job.hasOrderForm && job.daysSinceSent >= winStart) { status = 'Ready'; statusCls = 'st-ready'; }
@@ -749,7 +756,7 @@ function renderScheduler(data) {
   for (const b of badges) {
     html += `<span class="sched-sum-badge ${b.cls}">${b.count} ${b.label}</span>`;
   }
-  html += `<span class="sched-window-info">Ready window: 18-25 days (2.5-3.5 weeks) from order</span>`;
+  html += `<span class="sched-window-info">Ready window: 18-25 days from order. Canbrax: delivery Monday after 8 business days</span>`;
   html += `</div>`;
 
   html += `<div class="sched-table-wrap"><table class="sched-table">`;
@@ -773,11 +780,13 @@ function renderScheduler(data) {
       html += `<tr class="sched-divider ${r.statusCls}-bg"><td colspan="10">${esc(r.status)}${r.status === 'Ready' ? ' — ready to book installation' : r.status === 'Coming Soon' ? ' — parts arriving soon' : r.status === 'Ordered' ? ' — recently placed' : r.status === 'Not Sent' ? ' — order form not yet sent' : ' — installation scheduled'}</td></tr>`;
     }
 
-    const winStart = r.readyWindowStart || 18;
-    const winEnd = r.readyWindowEnd || 25;
+    const { winStart, winEnd } = readyWindow(r);
     const sentStr = r.orderFormSentDate ? new Date(r.orderFormSentDate + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : '';
     let estReadyStr = '';
-    if (r.orderFormSentDate) {
+    if (r.isCanbrax && r.canbraxDelivery) {
+      const dd = new Date(r.canbraxDelivery + 'T00:00:00');
+      estReadyStr = `${dd.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })} onwards <span class="sched-canbrax-tag">Canbrax</span>`;
+    } else if (r.orderFormSentDate) {
       const d1 = new Date(r.orderFormSentDate + 'T00:00:00');
       const d2 = new Date(r.orderFormSentDate + 'T00:00:00');
       d1.setDate(d1.getDate() + winStart);

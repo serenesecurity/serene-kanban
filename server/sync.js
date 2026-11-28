@@ -34,6 +34,7 @@ export function createSyncManager(sm8, cache, sse) {
         materialsMap.get(m.job_uuid).push({
           name: m.name || '',
           quantity: parseFloat(m.quantity) || 0,
+          price: parseFloat(m.price) || 0,
           active: String(m.active) !== '0',
           edit_date: m.edit_date || '',
         });

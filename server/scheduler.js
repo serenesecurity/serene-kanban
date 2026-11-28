@@ -1,3 +1,5 @@
+import { isCanbraxJob, canbraxDeliveryDate } from './canbrax.js';
+
 const HOME_LAT = -27.2036;
 const HOME_LNG = 153.1056;
 
@@ -258,6 +260,9 @@ export function buildSchedule(jobs, overrides = {}) {
       hasSuffix,
       depositDate,
       orderFormDate: j.order_form_sent_date ? new Date(j.order_form_sent_date) : null,
+      canbraxDelivery: j.order_form_sent_date && isCanbraxJob(j.materials)
+        ? canbraxDeliveryDate(j.order_form_sent_date)
+        : null,
       booked: false,
     };
   });
@@ -324,7 +329,11 @@ export function buildSchedule(jobs, overrides = {}) {
   for (const cand of unpinned) {
     // Determine which days this job can be scheduled
     let allowedDays;
-    if (cand.orderFormDate) {
+    if (cand.canbraxDelivery) {
+      // Canbrax: any workday from the delivery Monday onwards
+      allowedDays = [...dayHours.keys()].filter(d => d >= cand.canbraxDelivery);
+      if (!allowedDays.length) allowedDays = [...dayHours.keys()];
+    } else if (cand.orderFormDate) {
       // Schedule from 18-25 days after order form sent (2.5-3.5 week ready window)
       const winStart = new Date(cand.orderFormDate);
       winStart.setDate(winStart.getDate() + 18);
