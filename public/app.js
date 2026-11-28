@@ -785,7 +785,7 @@ function renderScheduler(data) {
     let estReadyStr = '';
     if (r.isCanbrax && r.canbraxDelivery) {
       const dd = new Date(r.canbraxDelivery + 'T00:00:00');
-      estReadyStr = `${dd.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })} onwards <span class="sched-canbrax-tag">Canbrax</span>`;
+      estReadyStr = `${dd.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })} <span class="sched-canbrax-tag">Canbrax</span>`;
     } else if (r.orderFormSentDate) {
       const d1 = new Date(r.orderFormSentDate + 'T00:00:00');
       const d2 = new Date(r.orderFormSentDate + 'T00:00:00');
